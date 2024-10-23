@@ -4,7 +4,7 @@ import cProfile
 import pstats
 import logging
 import sys
-from py3dbp.main import Packer, Bin, Item, Painter, set_external_logger  # Importa dal modulo esterno
+from py3dbp.main import Packer, Bin, Item, Painter, set_external_logger  # Import from external module
 
 
 def setup_logger(name, level=logging.DEBUG):
@@ -21,633 +21,488 @@ def setup_logger(name, level=logging.DEBUG):
 
 logger = setup_logger(__name__)
 
-logger.info('Logger configurato correttamente nel modulo principale.')
+logger.info('Logger successfully configured in the main module.')
 
-# Passa il logger al modulo esterno
+# Pass the logger to the external module
 set_external_logger(logger)
 
-#start = time.time()
+# Create an instance of the profiler
+# profiler = cProfile.Profile()
+# Enable the profiler, execute the function, and disable the profiler
+# profiler.enable()
 
-# Crea un'istanza del profiler
-#profiler = cProfile.Profile()
-# Abilita il profiler, esegui la funzione, e disabilita il profiler
-#profiler.enable()
-
-
-tipi_bancale = {
+pallet_types = {
     "Heavy": {
-        "Quarter Pallet": {"Lunghezza massima": 120, "Larghezza massima": 100, "Altezza massima": 100, "Peso massimo": 300, "Priority_pallet_choice": 2, "Color": "red"},
-        "Half Pallet": {"Lunghezza massima": 120, "Larghezza massima": 100, "Altezza massima": 150, "Peso massimo": 600, "Priority_pallet_choice": 5, "Color": "orange"},
-        "Full Pallet": {"Lunghezza massima": 120, "Larghezza massima": 100, "Altezza massima": 240, "Peso massimo": 1200, "Priority_pallet_choice": 7, "Color": "yellow"},
+        "Quarter Pallet": {"Max Length": 120, "Max Width": 100, "Max Height": 100, "Max Weight": 300, "Priority_pallet_choice": 2, "Color": "red"},
+        "Half Pallet": {"Max Length": 120, "Max Width": 100, "Max Height": 150, "Max Weight": 600, "Priority_pallet_choice": 5, "Color": "orange"},
+        "Full Pallet": {"Max Length": 120, "Max Width": 100, "Max Height": 240, "Max Weight": 1200, "Priority_pallet_choice": 7, "Color": "yellow"},
     },
     "Light": {
-        "Light Pallet": {"Lunghezza massima": 120, "Larghezza massima": 100, "Altezza massima": 240, "Peso massimo": 750, "Priority_pallet_choice": 6, "Color": "green"},
-        "Extra Light Pallet": {"Lunghezza massima": 120, "Larghezza massima": 100, "Altezza massima": 150, "Peso massimo": 450, "Priority_pallet_choice": 3, "Color": "olive"},
-        "Ultra Light Pallet": {"Lunghezza massima": 120, "Larghezza massima": 100, "Altezza massima": 240, "Peso massimo": 350, "Priority_pallet_choice": 4, "Color": "blue"},
-        "Mini Quarter": {"Lunghezza massima": 120, "Larghezza massima": 100, "Altezza massima": 60, "Peso massimo": 150, "Priority_pallet_choice": 1, "Color": "pink"},
+        "Light Pallet": {"Max Length": 120, "Max Width": 100, "Max Height": 240, "Max Weight": 750, "Priority_pallet_choice": 6, "Color": "green"},
+        "Extra Light Pallet": {"Max Length": 120, "Max Width": 100, "Max Height": 150, "Max Weight": 450, "Priority_pallet_choice": 3, "Color": "olive"},
+        "Ultra Light Pallet": {"Max Length": 120, "Max Width": 100, "Max Height": 240, "Max Weight": 350, "Priority_pallet_choice": 4, "Color": "blue"},
+        "Mini Quarter": {"Max Length": 120, "Max Width": 100, "Max Height": 60, "Max Weight": 150, "Priority_pallet_choice": 1, "Color": "pink"},
     },
-    "Fuori Misura": {
-        "Custom Pallet": {"Lunghezza massima": 1300, "Larghezza massima": 240, "Altezza massima": 240, "Peso massimo": 22000, "Priority_pallet_choice": 8, "Color": "brown"},
+    "Oversized": {
+        "Custom Pallet": {"Max Length": 1300, "Max Width": 240, "Max Height": 240, "Max Weight": 22000, "Priority_pallet_choice": 8, "Color": "brown"},
     }
 }
 
-pallets_dimensions = {
-    "EUR": {"Lunghezza": 120, "Larghezza": 80, "Altezza": 15, "Peso": 25},
-    "ISO": {"Lunghezza": 120, "Larghezza": 100, "Altezza": 15, "Peso": 28},
-    "120x120": {"Lunghezza": 120, "Larghezza": 120, "Altezza": 15, "Peso": 30},
+pallet_dimensions = {
+    "EUR": {"Length": 120, "Width": 80, "Height": 15, "Weight": 25},
+    "ISO": {"Length": 120, "Width": 100, "Height": 15, "Weight": 28},
+    "120x120": {"Length": 120, "Width": 120, "Height": 15, "Weight": 30},
 }
 
-tutti_sottotipi_bancale = []
-for tipo, sottotipo in tipi_bancale.items():
-    for sottotipo, dimensioni in sottotipo.items():
-        tutti_sottotipi_bancale.append((tipo, sottotipo, dimensioni))
+all_subtypes = []
+for type_, subtype in pallet_types.items():
+    for subtype_name, dimensions in subtype.items():
+        all_subtypes.append((type_, subtype_name, dimensions))
 
-sorted_all_types = sorted(tutti_sottotipi_bancale, key=lambda x: x[2]["Priority_pallet_choice"], reverse=True)
+sorted_all_types = sorted(all_subtypes, key=lambda x: x[2]["Priority_pallet_choice"], reverse=True)
 
-altezza_minima_possibile_pallet = sorted(pallets_dimensions.values(), key=lambda x: x["Altezza"])[0]["Altezza"]
-#print(altezza_minima_possibile_pallet)
-peso_minimo_possibile_pallet = sorted(pallets_dimensions.values(), key=lambda x: x["Peso"])[0]["Peso"]
-#print(peso_minimo_possibile_pallet)
+min_possible_height = sorted(pallet_dimensions.values(), key=lambda x: x["Height"])[0]["Height"]
+# print(min_possible_height)
+min_possible_weight = sorted(pallet_dimensions.values(), key=lambda x: x["Weight"])[0]["Weight"]
+# print(min_possible_weight)
 
 class Pallet:
-    def __init__(self, tipo):
-        self.tipo = tipo
-        self.lunghezza = pallets_dimensions[tipo]["Lunghezza"]
-        self.larghezza = pallets_dimensions[tipo]["Larghezza"]
-        self.altezza = pallets_dimensions[tipo]["Altezza"]
-        self.peso = pallets_dimensions[tipo]["Peso"]
+    def __init__(self, type_):
+        self.type = type_
+        self.length = pallet_dimensions[type_]["Length"]
+        self.width = pallet_dimensions[type_]["Width"]
+        self.height = pallet_dimensions[type_]["Height"]
+        self.weight = pallet_dimensions[type_]["Weight"]
 
 
-class Collo:
-    def __init__(self, lunghezza=120, larghezza=80, altezza=240, peso=1200, pallet=None, nome="ERRORE: Senza nome"):
+class Package:
+    def __init__(self, length=120, width=80, height=240, weight=1200, pallet=None, name="ERROR: No Name"):
         self.pallet = pallet
-        #print(altezza, {self.pallet.altezza if self.pallet is not None else 0})
-        self.altezza = altezza - (self.pallet.altezza if self.pallet is not None else 0)
-        self.peso = peso - (self.pallet.peso if self.pallet is not None else 0)
-        self.lunghezza, self.larghezza = max(lunghezza, larghezza), min(lunghezza, larghezza)
-        self.volume = self.lunghezza * self.larghezza * self.altezza
-        self.densità = self.peso / self.volume  # kg/cm^3
-        self.nome = nome
-        self.assegna_pallet_a_collo()
+        # print(height, {self.pallet.height if self.pallet is not None else 0})
+        self.height = height - (self.pallet.height if self.pallet is not None else 0)
+        self.weight = weight - (self.pallet.weight if self.pallet is not None else 0)
+        self.length, self.width = max(length, width), min(length, width)
+        self.volume = self.length * self.width * self.height
+        self.density = self.weight / self.volume  # kg/cm^3
+        self.name = name
+        self.assign_pallet_to_package()
 
-
-    def assegna_pallet_a_collo(self):
+    def assign_pallet_to_package(self):
         if self.pallet is None:
-            #print(f"Misure collo: Lunghezza={self.lunghezza}, Larghezza={self.larghezza}, Altezza={self.altezza}, Peso={self.peso}")
-            # Riordina i pallet per larghezza in modo crescente
-            pallets = sorted(pallets_dimensions, key=lambda x: pallets_dimensions[x]["Larghezza"], reverse=True)
-            #print(pallets)
-            pallets_classe = [Pallet(pallet) for pallet in pallets]
+            # print(f"Package dimensions: Length={self.length}, Width={self.width}, Height={self.height}, Weight={self.weight}")
+            # Reorder pallets by width in ascending order
+            pallets = sorted(pallet_dimensions, key=lambda x: pallet_dimensions[x]["Width"], reverse=True)
+            # print(pallets)
+            pallets_class = [Pallet(pallet) for pallet in pallets]
 
-            # Trova il pallet con larghezza minima che sia sufficiente per il collo (partendo da quello più grande)
-            for pallet in pallets_classe:
-                if pallet.larghezza >= self.larghezza:
+            # Find the pallet with minimum width sufficient for the package (starting from the largest)
+            for pallet in pallets_class:
+                if pallet.width >= self.width:
                     self.pallet = pallet
 
-            # Se nessun pallet è sufficiente, assegna il pallet più grande
+            # If no pallet is sufficient, assign the largest pallet
             if self.pallet is None:
-                self.pallet = pallets_classe[-1]
-            
-            #print(f"Collo {self.nome} di larghezza {self.larghezza} assegnato a pallet {self.pallet.tipo}.")
+                self.pallet = pallets_class[-1]
 
-            #print(F"Misure collo: Lunghezza={self.lunghezza}, Larghezza={self.larghezza}, Altezza={self.altezza}, Peso={self.peso}")
-            #assicurati grandezze collo
+            # print(f"Package {self.name} with width {self.width} assigned to pallet {self.pallet.type}.")
+
+            # print(f"Package dimensions: Length={self.length}, Width={self.width}, Height={self.height}, Weight={self.weight}")
+            # Ensure package dimensions
 
 
-class Bancale:
-    def __init__(self, collo, baia=None, camion_assegnato=None, priorità=5, sovrapponibile=True, sovr_index=1):
-        self.pallet = collo.pallet
-        self.sovr_index = sovr_index
-        self.sovrapponibile = sovrapponibile
-        self.lunghezza = max(collo.lunghezza, self.pallet.lunghezza)
-        self.larghezza = max(collo.larghezza, self.pallet.larghezza)
-        self.altezza = collo.altezza + self.pallet.altezza
-        self.peso = collo.peso + self.pallet.peso
-        self.volume = self.lunghezza * self.larghezza * self.altezza
-        self.densità = self.peso / self.volume # kg/cm^3
-        self.nome = collo.nome
-        self.position = None  # Aggiunta per tracciare la posizione del bancale nel camion
-        self.sottotipo = None
-        self.forma = "cube"
-        self.priorità = priorità
-        self.colore = None
-        self.camion_assegnato = camion_assegnato
-        self.baia = baia
-        self.capacità_di_carico = self.sovrapponibilità_dinamica() # Call the method to calculate the dynamic load bearing capacity
-        self.assegna_sottotipo_bancale_a_bancale()  # Call the method to assign the bancale type
-        self.versione_Item = Item(partno=self.nome, name=self.sottotipo, typeof=self.forma, WHD=(self.larghezza, self.lunghezza, self.altezza), weight=self.peso, level=self.priorità, loadbear=self.capacità_di_carico, updown=False, color=self.colore, assigned_bin=(self.camion_assegnato.versione_bin if self.camion_assegnato is not None else None))
+class PalletStack:
+    def __init__(self, package, bay=None, assigned_truck=None, priority=5, stackable=True, stack_index=1):
+        self.pallet = package.pallet
+        self.stack_index = stack_index
+        self.stackable = stackable
+        self.length = max(package.length, self.pallet.length)
+        self.width = max(package.width, self.pallet.width)
+        self.height = package.height + self.pallet.height
+        self.weight = package.weight + self.pallet.weight
+        self.volume = self.length * self.width * self.height
+        self.density = self.weight / self.volume  # kg/cm^3
+        self.name = package.name
+        self.position = None  # Added to track the position of the pallet stack in the truck
+        self.subtype = None
+        self.shape = "cube"
+        self.priority = priority
+        self.color = None
+        self.assigned_truck = assigned_truck
+        self.bay = bay
+        self.load_capacity = self.calculate_dynamic_stackability()  # Call the method to calculate the dynamic load-bearing capacity
+        self.assign_subtype_to_pallet_stack()  # Call the method to assign the pallet stack type
+        self.version_item = Item(partno=self.name, name=self.subtype, typeof=self.shape, WHD=(self.width, self.length, self.height), weight=self.weight, level=self.priority, loadbear=self.load_capacity, updown=False, color=self.color, assigned_bin=(self.assigned_truck.version_bin if self.assigned_truck is not None else None))
 
-    def aggiorna_versione_Item(self):
-        self.versione_Item = Item(partno=self.nome, name=self.sottotipo, typeof=self.forma, WHD=(self.larghezza, self.lunghezza, self.altezza), weight=self.peso, level=self.priorità, loadbear=self.capacità_di_carico, updown=False, color=self.colore, assigned_bin=(self.camion_assegnato.versione_bin if self.camion_assegnato is not None else None))
+    def update_version_item(self):
+        self.version_item = Item(partno=self.name, name=self.subtype, typeof=self.shape, WHD=(self.width, self.length, self.height), weight=self.weight, level=self.priority, loadbear=self.load_capacity, updown=False, color=self.color, assigned_bin=(self.assigned_truck.version_bin if self.assigned_truck is not None else None))
 
-    def sovrapponibilità_dinamica(self):
-        if self.sovrapponibile:
-            # Calcola la capacità di carico basata sul peso e sull'indice di svrapponibilità
-            return self.peso * self.sovr_index
+    def calculate_dynamic_stackability(self):
+        if self.stackable:
+            # Calculate the load-bearing capacity based on weight and stackability index
+            return self.weight * self.stack_index
         else:
             return 0
 
-    def assegna_sottotipo_bancale_a_bancale(self):
-        if self.larghezza > self.lunghezza:
-            self.lunghezza, self.larghezza = self.larghezza, self.lunghezza
-            print(f"Bancale {self.nome} con larghezza maggiore della lunghezza. Scambio delle due dimensioni.")
+    def assign_subtype_to_pallet_stack(self):
+        if self.width > self.length:
+            self.length, self.width = self.width, self.length
+            print(f"Pallet stack {self.name} with width greater than length. Swapping dimensions.")
 
         sorted_all_types_copy = sorted_all_types[:]
-        for tipo, sottotipo, dimensioni in sorted_all_types_copy:
-            #print(f"Verifica tipo: {tipo}, nome: {nome}")
-            #print(f"Dimensioni bancale: Lunghezza={self.lunghezza}, Larghezza={self.larghezza}, Altezza={self.altezza}, Peso={self.peso}")
-            #print(f"Limiti: Lunghezza massima={dimensioni['Lunghezza massima']}, Larghezza massima={dimensioni['Larghezza massima']}, Altezza massima={dimensioni['Altezza massima']}, Peso massimo={dimensioni['Peso massimo']}")
+        for type_, subtype, dimensions in sorted_all_types_copy:
             if (
-                self.lunghezza <= dimensioni["Lunghezza massima"]
-                and self.larghezza <= dimensioni["Larghezza massima"]
-                and self.altezza <= dimensioni["Altezza massima"]
-                and self.peso <= dimensioni["Peso massimo"]
+                self.length <= dimensions["Max Length"]
+                and self.width <= dimensions["Max Width"]
+                and self.height <= dimensions["Max Height"]
+                and self.weight <= dimensions["Max Weight"]
             ):
-                self.sottotipo = sottotipo  # Assign the bancale type to the attribute
-                self.colore = dimensioni["Color"]  # Assign the color to the attribute
-                #print(f"Tipo assegnato: {tipo}, Colore assegnato: {self.colore}")
-                self.aggiorna_versione_Item()
-        #print("Nessun tipo compatibile trovato")
-        #self.aggiorna_versione_Item()
-        #print(f"Bancale {self.nome} assegnato come {self.sottotipo}")
-        #print(f"Dimensioni bancale: Lunghezza={self.lunghezza}, Larghezza={self.larghezza}, Altezza={self.altezza}, Peso={self.peso}")
-
-class CamionCentinato:
-    def __init__(self, lunghezza=1300, larghezza=240, altezza=240, peso_massimo=24000, targa="AA000AA", metodo_carico="Laterale", bancali_preesistenti_movimentabili=True, baia=None):
-        self.lunghezza = lunghezza  # in cm
-        self.larghezza = larghezza  # in cm
-        self.altezza = altezza  # in cm
-        self.peso_massimo = peso_massimo  # in kg
-        self.bancali_caricati = []
-        self.volume = self.lunghezza * self.larghezza * self.altezza
-        self.peso_corrente = 0
-        self.volume_corrente = 0
-        self.targa = targa
-        self.metodo_carico = metodo_carico
-        self.baia = baia
-        self.bancali_preesistenti = []
-        self.bancali_preesistenti_movimentabili = bancali_preesistenti_movimentabili
-        self.versione_bin = Bin(partno=self.targa, WHD=((self.larghezza, self.lunghezza, self.altezza)), max_weight=self.peso_massimo, corner=0, put_type=0)
-        self.baia.packer.addBin(self.versione_bin)
+                self.subtype = subtype  # Assign the pallet stack type to the attribute
+                self.color = dimensions["Color"]  # Assign the color to the attribute
+                # print(f"Assigned type: {type_}, Assigned color: {self.color}")
+                self.update_version_item()
+                break
+        # print(f"Pallet stack {self.name} assigned as {self.subtype}")
+        # print(f"Pallet stack dimensions: Length={self.length}, Width={self.width}, Height={self.height}, Weight={self.weight}")
 
 
-    def considera_bancali_preesistenti(self, bancali_iniziali):
+class Truck:
+    def __init__(self, length=1300, width=240, height=240, max_weight=24000, license_plate="AA000AA", load_method="Side", movable_existing_pallets=True, bay=None):
+        self.length = length  # in cm
+        self.width = width  # in cm
+        self.height = height  # in cm
+        self.max_weight = max_weight  # in kg
+        self.loaded_pallets = []
+        self.volume = self.length * self.width * self.height
+        self.current_weight = 0
+        self.current_volume = 0
+        self.license_plate = license_plate
+        self.load_method = load_method
+        self.bay = bay
+        self.existing_pallets = []
+        self.movable_existing_pallets = movable_existing_pallets
+        self.version_bin = Bin(partno=self.license_plate, WHD=((self.width, self.length, self.height)), max_weight=self.max_weight, corner=0, put_type=0)
+        self.bay.packer.addBin(self.version_bin)
 
-        # Aggiungi i nuovi bancali al packer
-        # Aggiungi i bancali già caricati nel camion al packer
-        # Di default i bancali non hanno posizione, a meno che non gli sia già stata data
-        # Che sia già vuoto o no, non c'è differenza a meno che non vogliamo impostare i bancali preesistenti come fissi
-        #print(f"**Bancali preesistenti per camion {self.targa}:**")
-        for bancale in self.bancali_preesistenti:
-            #print(bancale.nome)
-            bancale.priorità = 1
-            #position=bancale.position POSIZIONE NON MODIFICABILE ANCORA DA IMPLEMENTARE
-            
-            while not self.verifica_compatibilità_con_vettura(bancale):
-                print(f"ERRORE: Il bancale preesistente {bancale.nome} non è compatibile con la vettura {self.targa} su cui è caricato.")
-                print(f"Le dimensioni del bancale sono: Lunghezza={bancale.lunghezza}, Larghezza={bancale.larghezza}, Altezza={bancale.altezza}, Peso={bancale.peso}, Pallet={bancale.pallet.tipo}.")
-                print(f"Le dimensioni della vettura sono: Lunghezza={self.lunghezza}, Larghezza={self.larghezza}, Altezza={self.altezza}, Peso={self.peso_massimo}.")
-                print(f"Reinserire le dimensioni del bancale {bancale.nome}.")
-                lunghezza_bancale = int(chiedi_valore("Lunghezza (se vuoto 120): ", 120, lambda x: x.isdigit()))
-                larghezza_bancale = int(chiedi_valore("Larghezza (se vuoto 80): ", 80, lambda x: x.isdigit()))
-                altezza_bancale = int(chiedi_valore("Altezza (se vuoto 240): ", 240, lambda x: x.isdigit()))
-                peso_bancale = int(chiedi_valore("Peso (se vuoto 1200): ", 1200, lambda x: x.isdigit()))
-                tipo_pallet = chiedi_valore("Tipo pallet (EUR/ISO/120x120) (se vuoto automatico): ", None, lambda x: x in ["EUR", "ISO", "120x120", ""])
-                pallet_compreso = chiedi_valore("Pallet compreso nelle misure? (si/no) (se vuoto si): ", "si", lambda x: x.lower() in ["si", "no", ""]).lower()
-                for collo in colli:
-                    if collo.nome == bancale.nome:
-                        collo.lunghezza = lunghezza_bancale
-                        collo.larghezza = larghezza_bancale
-                        collo.pallet = tipo_pallet
-                        collo.altezza = altezza_bancale - ((collo.pallet.altezza if collo.pallet is not None else altezza_minima_possibile_pallet) if pallet_compreso == "si" else 0)
-                        collo.peso = peso_bancale - ((collo.pallet.peso if collo.pallet is not None else peso_minimo_possibile_pallet) if pallet_compreso == "si" else 0)
-                        collo.volume = collo.lunghezza * collo.larghezza * collo.altezza
-                        collo.densità = collo.peso / collo.volume  # kg/cm^3
-                        collo.assegna_pallet_a_collo()
-                        bancale.pallet = collo.pallet
-                        bancale.lunghezza = max(collo.lunghezza, collo.pallet.lunghezza)
-                        bancale.larghezza = max(collo.larghezza, collo.pallet.larghezza)
-                        bancale.altezza = collo.altezza + bancale.pallet.altezza
-                        bancale.peso = collo.peso + bancale.pallet.peso
-                        bancale.volume = bancale.lunghezza * bancale.larghezza * bancale.altezza
-                        bancale.densità = bancale.peso / bancale.volume # kg/cm^3
-                        bancale.capacità_di_carico = bancale.sovrapponibilità_dinamica()
+    def consider_existing_pallets(self, initial_pallets):
+        global packages  # Ensure 'packages' is accessible
 
-            bancale.assegna_sottotipo_bancale_a_bancale()
-            
-            # Tentativo di caricamento del bancale
-            if bancale not in self.bancali_caricati:
-                if bancale.versione_Item not in self.baia.packer.items:
-                    self.baia.packer.addItem(bancale.versione_Item)
-                    print(f"Bancale {bancale.nome} preesistente aggiunto al packer della baia {bancale.camion_assegnato.baia.numero}. Confermato")
-                    bancali_iniziali.remove(bancale)
+        for pallet in self.existing_pallets:
+            # print(pallet.name)
+            pallet.priority = 1
+            # position=pallet.position POSITION NOT YET MODIFIABLE TO BE IMPLEMENTED
+
+            while not self.check_truck_compatibility(pallet):
+                print(f"ERROR: The existing pallet {pallet.name} is not compatible with the truck {self.license_plate} on which it is loaded.")
+                print(f"Pallet dimensions are: Length={pallet.length}, Width={pallet.width}, Height={pallet.height}, Weight={pallet.weight}, Pallet Type={pallet.pallet.type}.")
+                print(f"Truck dimensions are: Length={self.length}, Width={self.width}, Height={self.height}, Weight={self.max_weight}.")
+                print(f"Please re-enter the dimensions of pallet {pallet.name}.")
+                length_pallet = int(get_value("Length (if empty 120): ", 120, lambda x: x.isdigit()))
+                width_pallet = int(get_value("Width (if empty 80): ", 80, lambda x: x.isdigit()))
+                height_pallet = int(get_value("Height (if empty 240): ", 240, lambda x: x.isdigit()))
+                weight_pallet = int(get_value("Weight (if empty 1200): ", 1200, lambda x: x.isdigit()))
+                pallet_type = get_value("Pallet type (EUR/ISO/120x120) (if empty automatic): ", None, lambda x: x in ["EUR", "ISO", "120x120", ""])
+                pallet_included = get_value("Is pallet included in measurements? (yes/no) (if empty yes): ", "yes", lambda x: x.lower() in ["yes", "no", ""]).lower()
+                for package in packages:
+                    if package.name == pallet.name:
+                        package.length = length_pallet
+                        package.width = width_pallet
+                        package.pallet = Pallet(pallet_type) if pallet_type else None
+                        package.height = height_pallet - ((package.pallet.height if package.pallet is not None else min_possible_height) if pallet_included == "yes" else 0)
+                        package.weight = weight_pallet - ((package.pallet.weight if package.pallet is not None else min_possible_weight) if pallet_included == "yes" else 0)
+                        package.volume = package.length * package.width * package.height
+                        package.density = package.weight / package.volume  # kg/cm^3
+                        package.assign_pallet_to_package()
+                        pallet.pallet = package.pallet
+                        pallet.length = max(package.length, package.pallet.length)
+                        pallet.width = max(package.width, package.pallet.width)
+                        pallet.height = package.height + pallet.pallet.height
+                        pallet.weight = package.weight + pallet.pallet.weight
+                        pallet.volume = pallet.length * pallet.width * pallet.height
+                        pallet.density = pallet.weight / pallet.volume  # kg/cm^3
+                        pallet.load_capacity = pallet.calculate_dynamic_stackability()
+
+            pallet.assign_subtype_to_pallet_stack()
+
+            # Attempt to load the pallet
+            if pallet not in self.loaded_pallets:
+                if pallet.version_item not in self.bay.packer.items:
+                    self.bay.packer.addItem(pallet.version_item)
+                    print(f"Existing pallet {pallet.name} added to the packer of bay {pallet.assigned_truck.bay.number}. Confirmed.")
+                    if pallet in initial_pallets:
+                        initial_pallets.remove(pallet)
                 else:
-                    print(f"ERRORE: Il bancale {bancale.nome} è già presente sia nel camion {self.targa} che nel packer di baia {self.baia.numero}.")
+                    print(f"ERROR: The pallet {pallet.name} is already present in both truck {self.license_plate} and the packer of bay {self.bay.number}.")
             else:
-                print(f"ERRORE: Il bancale {bancale.nome} è già presente tra i caricati del camion {self.targa}.")
-        #print("****bancali preesistenti finiti****")
-    
+                print(f"ERROR: The pallet {pallet.name} is already present among the loaded pallets of truck {self.license_plate}.")
 
-    def verifica_compatibilità_con_vettura(self, bancale):
-        if bancale.lunghezza <= self.lunghezza and \
-           bancale.larghezza <= self.larghezza and \
-           bancale.altezza <= self.altezza and \
-           bancale.peso <= self.peso_massimo:
+    def check_truck_compatibility(self, pallet):
+        if pallet.length <= self.length and \
+           pallet.width <= self.width and \
+           pallet.height <= self.height and \
+           pallet.weight <= self.max_weight:
             return True
         else:
-            #print(f"Concern: Il bancale {bancale.nome} non può essere caricato sul camion {self.targa}.")
+            # print(f"Concern: The pallet {pallet.name} cannot be loaded on truck {self.license_plate}.")
             return False
-        
-class Baia:
-    def __init__(self, numero, lunghezza, larghezza, altezza):
-        self.numero = numero
-        self.lunghezza = lunghezza
-        self.larghezza = larghezza
-        self.altezza = altezza
-        self.bancali_in_baia = []
-        self.volume = self.lunghezza * self.larghezza * self.altezza
-        self.volume_corrente = sum([b.volume for b in self.bancali_in_baia])
-        self.packer = Packer(self.numero)
 
-    def aggiungi_bancale_in_baia(self, bancale_da_aggiungere_in_baia, bancali_iniziali):
-        if self.verifica_compatibilità_con_baia(bancale_da_aggiungere_in_baia):
-            if bancale_da_aggiungere_in_baia not in self.bancali_in_baia:
-                self.bancali_in_baia.append(bancale_da_aggiungere_in_baia)
-                bancali_iniziali.remove(bancale_da_aggiungere_in_baia)
+
+class Bay:
+    def __init__(self, number, length, width, height):
+        self.number = number
+        self.length = length
+        self.width = width
+        self.height = height
+        self.pallets_in_bay = []
+        self.volume = self.length * self.width * self.height
+        self.current_volume = sum([b.volume for b in self.pallets_in_bay])
+        self.packer = Packer(self.number)
+
+    def add_pallet_to_bay(self, pallet_to_add, initial_pallets):
+        if self.check_compatibility_with_bay(pallet_to_add):
+            if pallet_to_add not in self.pallets_in_bay:
+                self.pallets_in_bay.append(pallet_to_add)
+                if pallet_to_add in initial_pallets:
+                    initial_pallets.remove(pallet_to_add)
             else:
-                print(f"ERRORE: Il bancale {bancale_da_aggiungere_in_baia.nome} è già presente nella baia {self.numero}.")
-                #bancali_iniziali.remove(b for b in bancali_iniziali if b.nome == bancale_da_aggiungere_in_baia.nome) #DA CORREGGERE
-                #bancali_iniziali[:] = [bancale for bancale in bancali_iniziali if bancale.nome != bancale_da_aggiungere_in_baia.nome]
+                print(f"ERROR: The pallet {pallet_to_add.name} is already present in bay {self.number}.")
         else:
-            print(f"Il bancale {bancale_da_aggiungere_in_baia.nome} non può essere caricato nella baia {self.numero}. Bancale scartato. Lunghezza {bancale.lunghezza} invece di {self.lunghezza}, larghezza {bancale.larghezza} invece di {self.larghezza}, altezza {bancale.altezza} invece di {self.altezza}")
-            bancale.baia = None
+            print(f"The pallet {pallet_to_add.name} cannot be loaded into bay {self.number}. Pallet discarded. Length {pallet_to_add.length} instead of {self.length}, width {pallet_to_add.width} instead of {self.width}, height {pallet_to_add.height} instead of {self.height}")
+            pallet_to_add.bay = None
 
-    def verifica_compatibilità_con_baia(self, bancale):
-        if bancale.lunghezza <= self.lunghezza and \
-           bancale.larghezza <= self.larghezza and \
-           bancale.altezza <= self.altezza:
+    def check_compatibility_with_bay(self, pallet):
+        if pallet.length <= self.length and \
+           pallet.width <= self.width and \
+           pallet.height <= self.height:
             return True
         else:
-            print(f"ERRORE: Il bancale {bancale.nome} non può essere caricato nella baia {self.numero}.")
+            print(f"ERROR: The pallet {pallet.name} cannot be loaded into bay {self.number}.")
             return False
-        
-    def carica_sui_camions(self, bancali_iniziali, camions_di_questa_baia, parametro_stabilità=0.9):
 
-        # Aggiungi i nuovi bancali al packer di baia
-        # Che sia già vuoto o no, non c'è differenza a meno che non vogliamo impostare i bancali preesistenti come fissi
-        # Aggiungi i bancali già caricati nel camion al packer
-        # Di default i bancali non hanno posizione, a meno che non gli sia già stata data
-        #print(f"**Bancali preesistenti per camion {camion.targa}:**")
-        #print(f"**{[b.nome for b in camion.bancali_preesistenti]}**")
-        #for bancale in camion.bancali_preesistenti:
-        #    print(f"Bancale {bancale.nome} assegnato a {bancale.camion_assegnato.targa}.") #DEBUG
-        #print("ciao")
-
-        for camion in camions_di_questa_baia:
-            camion.considera_bancali_preesistenti(bancali_iniziali)
-            print(f"Camion {camion.targa} con {len(camion.bancali_preesistenti)} bancali preesistenti + {len(camion.bancali_caricati)} già caricati.")
-            for bancale in self.bancali_in_baia:
-                #print(f"Bancale {bancale.nome} in baia {self.numero}.")
-                # Tentativo di caricamento del bancale
-                if camion.verifica_compatibilità_con_vettura(bancale):
-                    if bancale.nome not in [item.partno for item in self.packer.items]: 
-                        self.packer.addItem(bancale.versione_Item)
-                        #print(f"Bancale {bancale.nome} aggiunto al packer della baia {self.numero}.")
-                    #else:
-                        #print(f"ERRORE: Il bancale {bancale.nome} è già presente nel packer di baia {self.numero}.")
+    def load_onto_trucks(self, initial_pallets, trucks_in_this_bay, stability_param=0.9):
+        # Add new pallets to the bay packer
+        for truck in trucks_in_this_bay:
+            truck.consider_existing_pallets(initial_pallets)
+            print(f"Truck {truck.license_plate} with {len(truck.existing_pallets)} existing pallets + {len(truck.loaded_pallets)} already loaded.")
+            for pallet in self.pallets_in_bay:
+                # Attempt to load the pallet
+                if truck.check_truck_compatibility(pallet):
+                    if pallet.name not in [item.partno for item in self.packer.items]:
+                        self.packer.addItem(pallet.version_item)
+                        # print(f"Pallet {pallet.name} added to the packer of bay {self.number}.")
+                    # else:
+                        # print(f"ERROR: The pallet {pallet.name} is already present in the packer of bay {self.number}.")
                 else:
-                    print(f"Bancale {bancale.nome} non compatibile con vettura {camion.targa} quindi lasciato in baia")   
-                    
-        print(f"Lista item del packer di baia {self.numero} prima di paccare:")
+                    print(f"Pallet {pallet.name} not compatible with truck {truck.license_plate} so left in bay")
+
+        print(f"List of items in the packer of bay {self.number} before packing:")
         for item in self.packer.items:
-            print(f"Item {item.partno} aggiunto a packer di baia {self.numero}")
+            print(f"Item {item.partno} added to packer of bay {self.number}")
 
-
-        #print(f"Tutti bancali paked in baia {self.numero} prima del packing: {[item.partno for item in self.packer.items]}")
-
-        # sembra che al momento del packing ci siano solo i bancali precaricati e non quelli in baia nella lista degli items di quella baia
-        # Esegui il packing solo per i bancali senza posizione assegnata ANCORA DA IMPLEMENTARE
+        # Execute packing only for pallets without assigned position
         self.packer.pack(
             bigger_first=True,                 # bigger item first.
             fix_point=True,                    # fix item floating problem.
-            #binding=None,                      # make a set of items.
-            distribute_items=True,             # If multiple bin, to distribute or not.
+            # binding=None,                      # make a set of items.
+            distribute_items=True,             # If multiple bins, to distribute or not.
             check_stable=True,                 # check stability on item.
-            support_surface_ratio=parametro_stabilità,        # set support surface ratio.
+            support_surface_ratio=stability_param,        # set support surface ratio.
             number_of_decimals=0
         )
 
-        # put order
-        #self.packer.putOrder()
-
-        # Segna bancale sul camion
-        for camion in camions_di_questa_baia:
+        # Assign pallets to trucks
+        for truck in trucks_in_this_bay:
             for bin in self.packer.bins:
-                if bin.partno == camion.targa:
-                    lista = (self.bancali_in_baia + camion.bancali_preesistenti)[:]
-                    for bancale in lista:
+                if bin.partno == truck.license_plate:
+                    list_copy = (self.pallets_in_bay + truck.existing_pallets)[:]
+                    for pallet in list_copy:
                         for item in bin.items:
-                            if item.partno == bancale.nome:
-                                bancale.position = item.position # Aggiorna la posizione del bancale
-                                bancale.camion_assegnato = camion # Aggiorna il camion assegnato al bancale
-                                camion.bancali_caricati.append(bancale) # Aggiungi il bancale alla lista dei bancali caricati sul camion
-                                #print(f"Bancale {bancale.nome} caricato nel camion {camion.targa} con posizione x: {bancale.position[0]}, y: {bancale.position[1]}, z: {bancale.position[2]}")
-                                bancale.baia = None # Rimuovi la baia dal bancale
-                                camion.peso_corrente += item.weight # Aggiorna il peso corrente del camion
-                                camion.volume_corrente += item.getVolume()  # Aggiorna il volume corrente del camion
-                                #bancali_iniziali.remove(bancale) # rimuovi bancale da bancali bancali_iniziali (se è in questa lista) perchè piazzato su un camion
-                                #bancali_iniziali[:] = [b for b in bancali_iniziali if b.nome != bancale.nome]
-                                if bancale in self.bancali_in_baia:
-                                    self.bancali_in_baia.remove(bancale) # Rimuovi il bancale dalla baia (se era in questa lista)
-                                if bancale in camion.bancali_preesistenti:
-                                    camion.bancali_preesistenti.remove(bancale)
+                            if item.partno == pallet.name:
+                                pallet.position = item.position  # Update the position of the pallet
+                                pallet.assigned_truck = truck  # Update the assigned truck of the pallet
+                                if pallet not in truck.loaded_pallets:
+                                    truck.loaded_pallets.append(pallet)  # Add the pallet to the list of pallets loaded on the truck
+                                # print(f"Pallet {pallet.name} loaded on truck {truck.license_plate} at position x: {pallet.position[0]}, y: {pallet.position[1]}, z: {pallet.position[2]}")
+                                pallet.bay = None  # Remove the bay from the pallet
+                                truck.current_weight += item.weight  # Update the current weight of the truck
+                                truck.current_volume += item.getVolume()  # Update the current volume of the truck
+                                if pallet in initial_pallets:
+                                    initial_pallets.remove(pallet)  # Remove pallet from initial_pallets as it is placed on a truck
+                                if pallet in self.pallets_in_bay:
+                                    self.pallets_in_bay.remove(pallet)  # Remove the pallet from the bay (if it was in this list)
+                                if pallet in truck.existing_pallets:
+                                    truck.existing_pallets.remove(pallet)
 
 
-def distribuisci_bancali_a_baie(bancali_da_distribuire_a_baie):
-    #for bancale in bancali_da_distribuire_a_baie:
-    #            print(f"Bancale {bancale.nome} assegnato a baia {bancale.baia.numero if bancale.baia is not None else 'NESSUNA'} all'inizio (in bancali_da_distribuire_a_baie).")
-    bancali_da_distribuire_a_baie_copy = bancali_da_distribuire_a_baie[:]
-    for bancale in bancali_da_distribuire_a_baie_copy:
-        #print(f"Bancale {bancale.nome} assegnato a baia {bancale.baia.numero if bancale.baia is not None else 'NESSUNA'} durante il ciclo di assegnamento.")
-        if bancale.baia:
-            #print(f"Baia {bancale.baia.numero} bancali: {[bancale.nome for bancale in bancale.baia.bancali_in_baia]}")
-            #print(f"Aggiungo il bancale {bancale.nome} alla baia {bancale.baia.numero}.")
-            bancale.baia.aggiungi_bancale_in_baia(bancale, bancali_da_distribuire_a_baie)
-            #print(f"Bancale {bancale.nome} assegnato alla baia {bancale.baia.numero} durante distribuzione.")
-            #print(f"Rimanenti in bancali iniziali: {[b.nome for b in bancali_da_distribuire_a_baie]}")
-            if bancale.camion_assegnato is not None and not bancale.camion_assegnato.versione_bin.items:
-                bancale.priorità = 2
-                # se ha una baia assegnata ed anche un camion assegnato, il camion se lo caricherà durante il packing
+def distribute_pallets_to_bays(pallets_to_distribute):
+    pallets_to_distribute_copy = pallets_to_distribute[:]
+    for pallet in pallets_to_distribute_copy:
+        if pallet.bay:
+            pallet.bay.add_pallet_to_bay(pallet, pallets_to_distribute)
+            if pallet.assigned_truck is not None and not pallet.assigned_truck.version_bin.items:
+                pallet.priority = 2
+                # If it has an assigned bay and also an assigned truck, the truck will load it during packing
         else:
-            #print(f"Baia del bancale vuota e ={bancale.baia}")
-            if bancale.camion_assegnato is None:
-                print(f"Concern: Il bancale {bancale.nome} non è assegnato a nessun camion e a nessuna baia.")
-            #else:
-                #bancale.camion_assegnato.bancali_preesistenti.append(bancale) viene già fatto inizialmente
-    
-def chiedi_valore(messaggio, valore_default, validazione):
+            if pallet.assigned_truck is None:
+                print(f"Concern: The pallet {pallet.name} is not assigned to any truck and to any bay.")
+
+
+def get_value(message, default_value, validation):
     while True:
-        valore_input = input(messaggio)
-        if valore_input == "":
-            return valore_default
-        if validazione(valore_input):
-            return valore_input
+        input_value = input(message)
+        if input_value == "":
+            return default_value
+        if validation(input_value):
+            return input_value
         else:
-            print("Valore non valido. Per favore, riprova.")
+            print("Invalid value. Please try again.")
 
 
-# Inizializza le baie
-baie = []
-num_baie = 2 # random.randint(2, 3)
-for i in range(num_baie):
-    baia = Baia(numero=i, lunghezza=1300, larghezza=240, altezza=480)
-    baie.append(baia)
+# Initialize bays
+bays = []
+num_bays = 2  # random.randint(2, 3)
+for i in range(num_bays):
+    bay = Bay(number=i, length=1300, width=240, height=480)
+    bays.append(bay)
 
-# Inizializza i camion
-camions = []
-num_camions = random.randint(7, 8)
-for _ in range(num_camions):
-    class_camion = CamionCentinato(targa=f"AA{_}", baia=random.choice(baie))
-    camions.append(class_camion)
+# Initialize trucks
+trucks = []
+num_trucks = random.randint(7, 8)
+for _ in range(num_trucks):
+    truck = Truck(license_plate=f"AA{_}", bay=random.choice(bays))
+    trucks.append(truck)
 
-# Creazione dei colli
-colli = []
+# Create packages
+packages = []
 for _ in range(50):
-    lunghezza = random.randint(20, 150)
-    larghezza = random.randint(20, 150)
-    altezza = random.randint(30, 245)
-    volume = lunghezza * larghezza * altezza
-    peso = int(volume * random.uniform(0.0001, 0.0005))
+    length = random.randint(20, 150)
+    width = random.randint(20, 150)
+    height = random.randint(30, 245)
+    volume = length * width * height
+    weight = int(volume * random.uniform(0.0001, 0.0005))
     pallet = Pallet(random.choice(["EUR", "ISO", "120x120"]))
-    nome = f"{_}"
-    collo = Collo(lunghezza=lunghezza, 
-                   larghezza= larghezza, 
-                     altezza=altezza, 
-                       peso=peso,  
-                        pallet=pallet, 
-                        nome=nome)
-    colli.append(collo)
+    name = f"{_}"
+    package = Package(length=length,
+                      width=width,
+                      height=height,
+                      weight=weight,
+                      pallet=pallet,
+                      name=name)
+    packages.append(package)
 
-# Trasforma i colli in bancali
-bancali_iniziali_v1 = []
-for collo in colli:
-    baia = random.choice(baie)
-    #sovrapponibile = random.choice([True, False])
-    priorità = random.randint(3, 5)
-    bancale = Bancale(collo=collo, baia=baia, priorità=priorità) # sovrapponibile=sovrapponibile
-    sovr_index = random.random()   # random tra zero e 1
-    if bancale.sottotipo is not None:  # Check if a valid type was assigned
-        bancali_iniziali_v1.append(bancale)
+# Transform packages into pallet stacks
+initial_pallet_stacks = []
+for package in packages:
+    bay = random.choice(bays)
+    # stackable = random.choice([True, False])
+    priority = random.randint(3, 5)
+    pallet_stack = PalletStack(package=package, bay=bay, priority=priority)  # stackable=stackable
+    stack_index = random.random()   # random between zero and 1
+    if pallet_stack.subtype is not None:  # Check if a valid type was assigned
+        initial_pallet_stacks.append(pallet_stack)
     else:
-        bancali_iniziali_v1.append(bancale) # prova ma da rimuovere dopo
-        #print(f"Bancale scartato (teoricamente, non ora in prova): Bancale {bancale.nome} con Lunghezza={bancale.lunghezza}, Larghezza={bancale.larghezza}, Altezza={bancale.altezza}, Peso={bancale.peso} non può essere assegnato a nessun camion.")
+        initial_pallet_stacks.append(pallet_stack)  # For testing, but to be removed later
+        # print(f"Pallet stack discarded (theoretically, not now in test): Pallet stack {pallet_stack.name} with Length={pallet_stack.length}, Width={pallet_stack.width}, Height={pallet_stack.height}, Weight={pallet_stack.weight} cannot be assigned to any truck.")
 
-# Assegna alcuni dei bancali appena creati a qualche camion come se li avesse già caricati sopra
-for camion in camions:
+# Assign some of the newly created pallet stacks to some trucks as if they had already been loaded onto them
+i = 0  # Initialize i
+for truck in trucks:
     i += 3
-    for bancale in bancali_iniziali_v1[i-4:i-1]:
-        bancale.camion_assegnato = camion
-        bancale.baia = None
-        camion.bancali_preesistenti.append(bancale)
-        #bancale.position = (0, 0, 0)
-        #print(f"Bancale {bancale.nome} assegnato al camion {camion.targa}.")
+    for pallet_stack in initial_pallet_stacks[i-4:i-1]:
+        pallet_stack.assigned_truck = truck
+        pallet_stack.bay = None
+        truck.existing_pallets.append(pallet_stack)
+        # pallet_stack.position = (0, 0, 0)
+        # print(f"Pallet stack {pallet_stack.name} assigned to truck {truck.license_plate}.")
 
-    #print(f"Camion {camion.targa} con {len(camion.bancali_preesistenti)} bancali preesistenti.")
-    #for bancale in camion.bancali_preesistenti:
-    #    print(f"Bancale {bancale.nome} assegnato a {bancale.camion_assegnato.targa}.")
-
-#for baia in baie:
-#    print(f"Baia {baia.numero} bancali: {[bancale.nome for bancale in bancali_iniziali if bancale.baia == baia]}")
-
-# Distribuzione dei bancali nelle baie
-distribuisci_bancali_a_baie(bancali_da_distribuire_a_baie = bancali_iniziali_v1)
-
-#for baia in baie:
-#    print(f"Baia {baia.numero} bancali: {[bancale.nome for bancale in baia.bancali_in_baia]}")
-
-#for bancale in bancali_iniziali:
-    #print(f"Bancale {bancale.nome} assegnato a {bancale.camion_assegnato}.")
-
-for camion in camions:
-    print(f"Camion {camion.targa} con {len(camion.bancali_preesistenti)} bancali preesistenti.")
-    for bancale in camion.bancali_preesistenti:
-        print(f"Bancale {bancale.nome} assegnato a {bancale.camion_assegnato.targa} ovvero {camion.targa}.")
+# Distribute the pallet stacks into bays
+distribute_pallets_to_bays(pallets_to_distribute=initial_pallet_stacks)
 
 parametro_stabilità = 0.9
 
+for bay in bays:
+    trucks_in_this_bay = [truck for truck in trucks if truck.bay == bay]
+    print(f"Trucks for bay {bay.number}: {[truck.license_plate for truck in trucks_in_this_bay]}")
+    # Load the packages onto trucks
+    bay.load_onto_trucks(initial_pallets=initial_pallet_stacks, trucks_in_this_bay=trucks_in_this_bay, stability_param=parametro_stabilità)
 
-for baia in baie:
-    camions_di_questa_baia = [camion for camion in camions if camion.baia == baia]
-    print(f"Camion per baia {baia.numero}: {[camion.targa for camion in camions_di_questa_baia]}")
-    # Caricamento dei colli sui camion
-    baia.carica_sui_camions(bancali_iniziali = bancali_iniziali_v1, camions_di_questa_baia = camions_di_questa_baia, parametro_stabilità = parametro_stabilità)
+    # Print the loaded pallet stacks
+    print(f"**Pallet stacks loaded from bay {bay.number}**")
+    for truck in trucks_in_this_bay:
+        print(f"- On truck {truck.license_plate}:")
+        for truck_bin in bay.packer.bins:
+            if truck_bin.partno == truck.license_plate:
+                # print(truck.loaded_pallets)
+                for pallet_stack in truck.loaded_pallets:
+                    print(f"Pallet stack {pallet_stack.name} loaded on truck {truck.license_plate} at position x: {pallet_stack.position[0]}, y: {pallet_stack.position[1]}, z: {pallet_stack.position[2]}")
 
-    # Stampa dei bancali caricati
-    print(f"**Bancali caricati da baia {baia.numero}**")
-    for camion in camions_di_questa_baia:
-        print(f"- Sul camion {camion.targa}:")
-        for camion_bin in baia.packer.bins:
-            if camion_bin.partno == camion.targa:
-                #print(camion.bancali_caricati)
-                for bancale in camion.bancali_caricati:
-                    print(f"Bancale {bancale.nome} caricato nel camion {camion.targa} con posizione x: {bancale.position[0]}, y: {bancale.position[1]}, z: {bancale.position[2]}")
-            #else:
-                #print(f"ERRORE: Il camion {camion.targa} non è presente tra i bin di baia {baia.numero} (non matchano il camion.targa e baia.packer.bins.partno).")
-                #print(camion_bin.partno)
-                #print(camion.targa)
-    print("Rimasti in baia:")
-    for bancale in baia.bancali_in_baia:
-        i=0
-        for camion in camions_di_questa_baia:
-            i+=1
-            if camion.verifica_compatibilità_con_vettura(bancale):
-                print(f"Bancale {bancale.nome} rimasto in baia perchè camion pieni. Misure accettabili")
+    print("Remaining in bay:")
+    for pallet_stack in bay.pallets_in_bay:
+        i = 0
+        for truck in trucks_in_this_bay:
+            i += 1
+            if truck.check_truck_compatibility(pallet_stack):
+                print(f"Pallet stack {pallet_stack.name} remained in bay because trucks are full. Acceptable dimensions.")
                 break
-            if i==len(camions_di_questa_baia):
-                print(f"Bancale {bancale.nome} rimasto in baia ma NON TRASPORTABILE. Misure: Lunghezza {bancale.lunghezza}, Larghezza {bancale.larghezza}, Altezza {bancale.altezza}")
+            if i == len(trucks_in_this_bay):
+                print(f"Pallet stack {pallet_stack.name} remained in bay but NOT TRANSPORTABLE. Dimensions: Length {pallet_stack.length}, Width {pallet_stack.width}, Height {pallet_stack.height}")
 
-    for bancale in bancali_iniziali_v1:
-        if bancale.baia == baia:
-            i=0
-            for camion in camions_di_questa_baia:
-                i+=1
-                if camion.verifica_compatibilità_con_vettura(bancale):
-                    print(f"ERRORE: Bancale {bancale.nome} assegnato a questa baia ({bancale.baia.numero}) ma mai entrato in baia. Misure trasportabili da almeno un camion")
+    for pallet_stack in initial_pallet_stacks:
+        if pallet_stack.bay == bay:
+            i = 0
+            for truck in trucks_in_this_bay:
+                i += 1
+                if truck.check_truck_compatibility(pallet_stack):
+                    print(f"ERROR: Pallet stack {pallet_stack.name} assigned to this bay ({pallet_stack.bay.number}) but never entered bay. Transportable by at least one truck.")
                     break
-                if i==len(camions_di_questa_baia):
-                    print(f"Bancale {bancale.nome} assegnato a questa baia ({bancale.baia.numero}) ma mai entrato in baia. NON TRASPORTABILE. Misure: Lunghezza {bancale.lunghezza}, Larghezza {bancale.larghezza}, Altezza {bancale.altezza}")
+                if i == len(trucks_in_this_bay):
+                    print(f"Pallet stack {pallet_stack.name} assigned to this bay ({pallet_stack.bay.number}) but never entered bay. NOT TRANSPORTABLE. Dimensions: Length {pallet_stack.length}, Width {pallet_stack.width}, Height {pallet_stack.height}")
 
-    # put order
-    # camion.packer.putOrder()
-
-    # Stampa dei bancali caricati sul camion
     print("***************************************************")
-    for camion in baia.packer.bins:
-        print("**", camion.string(), "**")
+    for truck_bin in bay.packer.bins:
+        print("**", truck_bin.string(), "**")
         print("***************************************************")
         print("FITTED ITEMS:")
         print("***************************************************")
-        volume = camion.width * camion.height * camion.depth
+        volume = truck_bin.width * truck_bin.height * truck_bin.depth
         volume_fitted_items = 0  # Total volume of fitted items
-        for item in camion.items:
-            """
-            print("bancale numero : ", item.partno)
-            print("tipo : ", item.name)
-            print("colore : ", item.color)
-            print("Posizione - ", end=" ")
-            print("x : ", item.position[0], end=" ")
-            print("      y : ", item.position[1], end=" ")
-            print("      z : ", item.position[2])
-            print("rotation type : ", item.rotation_type)
-            print("Larg*Lung*Alt : ", str(item.width) + ' * ' + str(item.height) + ' * ' + str(item.depth))
-            print("volume : ", int(item.width) * int(item.height) * int(item.depth))
-            print("peso : ", int(item.weight))
-            print("***************************************************")
-            """
+        for item in truck_bin.items:
             volume_fitted_items += int(item.width) * int(item.height) * int(item.depth)
 
         print('space utilization : {}%'.format(round(volume_fitted_items / int(volume) * 100, 2)))
         print('residual volume : ', int(volume) - volume_fitted_items)
-        print("gravity distribution : ", camion.gravity)
+        print("gravity distribution : ", truck_bin.gravity)
         print("***************************************************")
 
-        #print(camion.items)
-        # draw results
-        painter = Painter(camion)
+        # Draw results
+        painter = Painter(truck_bin)
         fig = painter.plotBoxAndItems(
-            title=camion.partno,
-            alpha=0.6,   # Trasparenza
+            title=truck_bin.partno,
+            alpha=0.6,   # Transparency
             write_num=True,
             fontsize=10,
             alpha_proportional=True,
             top_face_alpha_color=True
         )
+        # fig.show()
 
     print("***************************************************")
-    print(f"UNFITTED ITEMS (con misure accettabili) in baia {baia.numero}:")
+    print(f"UNFITTED ITEMS (with acceptable dimensions) in bay {bay.number}:")
     unfitted_names = ''
     volume_unfitted_items = 0  # Total volume of unfitted items
-    for item in baia.packer.unfit_items:
+    for item in bay.packer.unfit_items:
         print("***************************************************")
-        print("bancale numero : ", item.partno)
-        print('tipo : ', item.name)
-        print("colore : ", item.color)
-        print("Larg*Lung*Alt : ", str(item.width) + ' * ' + str(item.height) + ' * ' + str(item.depth))
+        print("Pallet stack number : ", item.partno)
+        print('type : ', item.name)
+        print("color : ", item.color)
+        print("Width*Length*Height : ", str(item.width) + ' * ' + str(item.height) + ' * ' + str(item.depth))
         print("volume : ", int(item.width) * int(item.height) * int(item.depth))
-        print("peso : ", int(item.weight))
+        print("weight : ", int(item.weight))
         volume_unfitted_items += int(item.width) * int(item.height) * int(item.depth)
         unfitted_names += '{},'.format(item.partno)
         print("***************************************************")
     print("***************************************************")
-    #print(f'BANCALI con misure accettabili NON CARICATI in BAIA {baia.numero}: ', unfitted_names)
-    print(f'VOLUME BANCALI con misure accettabili NON CARICATI in BAIA {baia.numero}: ', volume_unfitted_items)
-
-#fig.show()
-
-#profiler.disable()
-
-# Stampa il report delle statistiche
-#stats = pstats.Stats(profiler)
-#stats.sort_stats('cumulative').print_stats(10)
-#profiler.dump_stats('profilazione.prof')
-#stop = time.time()
-#print('used time : ', stop - start)
-#logger.info('used time : %s', stop - start)
-
-"""
-for baia in baie:
-    for camion in baia.packer.bins:
-        print(f"Camion {camion.partno} con {len(camion.items)} bancali caricati.")
-        print(f"Volume totale: {camion.getVolume()}")
-        print(f"Peso totale: {camion.getTotalWeight()}")
-        print(f"Dimensioni: Larghezza={camion.width}, Lung={camion.height}, Alt={camion.depth}")
-        print(f"Gravità: {camion.gravity}")
-        print(f"max_weight: {camion.max_weight}")
-        print(f"corner: {camion.corner}")
-        print(f"put_type: {camion.put_type}")
-        print(f"fit_items: {camion.fit_items}")
-        print(f"unfit_items: {camion.unfitted_items}")
-        print(f"number_of_decimals: {camion.number_of_decimals}")
-        print(f"fix_point: {camion.fix_point}")
-        print(f"check_stable: {camion.check_stable}")
-        print(f"support_surface_ratio: {camion.support_surface_ratio}")
-
-        for item in camion.items:
-            print(f"partno: {item.partno}")
-            print(f"name: {item.name}")
-            print(f"typeof: {item.typeof}")
-            print(f"larghezza: {item.width}")
-            print(f"lunghezza: {item.height}")
-            print(f"altezza: {item.depth}")
-            print(f"weight: {item.weight}")
-            print(f"level: {item.level}")
-            print(f"loadbear: {item.loadbear}")
-            print(f"updown: {item.updown}")
-            print(f"color: {item.color}")
-            print(f"rotation_type: {item.rotation_type}")
-            print(f"position: {item.position}")
-            print(f"number_of_decimals: {item.number_of_decimals}")
-            print(f"assigned_bin: {item.assigned_bin}")
-            print(f"volume: {item.getVolume()}")
-            print(f"max_area: {item.getMaxArea()}")
-            print(f"dimension: {item.getDimension()}")
-"""
-
-
-"""
-# Funzione obiettivo minimizzazione costo trazione
-def calcolo_costo_trazione(collo):
-    portata_massima_centinato = 25000  # Define the value of portata_massima_centinato
-    indice_consumo_carburante = 1 + (max(0, portata_massima_centinato - 20000) / 500) * 0.005
-    indice_difficolta_movimentazione = 1.1 if portata_massima_centinato > 10000 else 1  # Semplice esempio
-    tassabile = (bancale(collo) * coefficiente_volume) + (portata_massima_centinato * coefficiente_peso)
-    costo_trazione = base_costo + (tassabile * indice_consumo_carburante * indice_difficolta_movimentazione)
-    return costo_trazione
-
-# Esempio di calcolo del costo di trazione
-# costo = calcolo_costo_trazione(collo)
-# print(f"Costo totale della trazione: {costo} euro")
-"""
+    # print(f'PALLET STACKS with acceptable dimensions NOT LOADED in BAY {bay.number}: ', unfitted_names)
+    print(f'VOLUME of pallet stacks with acceptable dimensions NOT LOADED in BAY {bay.number}: ', volume_unfitted_items)
 
 print("***************************************************")
 print("***************************************************")
@@ -657,101 +512,85 @@ print("***************************************************")
 print("***************************************************")
 print("***************************************************")
 
-# Creazione dei colli aggiuntivi per packing 2
-colli_aggiuntivi = []
+# Creation of additional packages for packing 2
+additional_packages = []
 for _ in range(51, 60):
-    lunghezza = random.randint(20, 150)
-    larghezza = random.randint(20, 150)
-    altezza = random.randint(30, 245)
-    volume = lunghezza * larghezza * altezza
-    peso = int(volume * random.uniform(0.0001, 0.0005))
+    length = random.randint(20, 150)
+    width = random.randint(20, 150)
+    height = random.randint(30, 245)
+    volume = length * width * height
+    weight = int(volume * random.uniform(0.0001, 0.0005))
     pallet = Pallet(random.choice(["EUR", "ISO", "120x120"]))
-    nome = f"{_}"
-    collo = Collo(lunghezza=lunghezza, 
-                   larghezza= larghezza, 
-                     altezza=altezza, 
-                       peso=peso,  
-                        pallet=pallet, 
-                        nome=nome)
-    colli_aggiuntivi.append(collo)
-    print(f"Nome collo aggiuntivo appena creato: {collo.nome}")
+    name = f"{_}"
+    package = Package(length=length,
+                      width=width,
+                      height=height,
+                      weight=weight,
+                      pallet=pallet,
+                      name=name)
+    additional_packages.append(package)
+    print(f"Name of newly created additional package: {package.name}")
 
+# Transform additional packages into additional pallet stacks
+initial_pallet_stacks_v2 = []
+for package in additional_packages:
+    priority = random.randint(3, 5)
+    pallet_stack = PalletStack(package=package, priority=priority, bay=trucks[0].bay)
+    stack_index = random.random()   # random between zero and 1
+    initial_pallet_stacks_v2.append(pallet_stack)
 
-# Trasforma i colli aggiuntivi in bancali aggiuntivi
-bancali_iniziali_v2 = []
-for collo in colli_aggiuntivi:
-    priorità = random.randint(3, 5)
-    bancale = Bancale(collo=collo, priorità=priorità, baia=camions[0].baia)
-    sovr_index = random.random()   # random tra zero e 1
-    bancali_iniziali_v2.append(bancale)
+# Assign the newly created pallet stacks to truck 0
+for pallet_stack in initial_pallet_stacks_v2:
+    pallet_stack.assigned_truck = trucks[0]
 
-# Assegna i bancali appena creati al camion 0
-for bancale in bancali_iniziali_v2:
-    bancale.camion_assegnato = camions[0]
+distribute_pallets_to_bays(pallets_to_distribute=initial_pallet_stacks_v2)
+trucks_in_this_bay_v2 = [truck for truck in trucks if truck.bay == trucks[0].bay]
+trucks[0].bay.load_onto_trucks(initial_pallets=initial_pallet_stacks_v2, trucks_in_this_bay=trucks_in_this_bay_v2, stability_param=parametro_stabilità)
 
-distribuisci_bancali_a_baie(bancali_da_distribuire_a_baie=bancali_iniziali_v2)
-camions_di_questa_baia_v2 = [camion for camion in camions if camion.baia == camions[0].baia]
-camions[0].baia.carica_sui_camions(bancali_iniziali = bancali_iniziali_v2, camions_di_questa_baia = camions_di_questa_baia_v2, parametro_stabilità = parametro_stabilità)
-
-# Stampa dei bancali caricati sul camion
+# Print the loaded pallet stacks on the truck
 print("***************************************************")
-camion=camions[0].versione_bin
-baia=camions[0].baia
-print("**", camion.string(), "**")
+truck_bin = trucks[0].version_bin
+bay = trucks[0].bay
+print("**", truck_bin.string(), "**")
 print("***************************************************")
 print("FITTED ITEMS:")
 print("***************************************************")
-volume = camion.width * camion.height * camion.depth
+volume = truck_bin.width * truck_bin.height * truck_bin.depth
 volume_fitted_items = 0  # Total volume of fitted items
-for item in camion.items:
-    """
-    print("bancale numero : ", item.partno)
-    print("tipo : ", item.name)
-    print("colore : ", item.color)
-    print("Posizione - ", end=" ")
-    print("x : ", item.position[0], end=" ")
-    print("      y : ", item.position[1], end=" ")
-    print("      z : ", item.position[2])
-    print("rotation type : ", item.rotation_type)
-    print("Larg*Lung*Alt : ", str(item.width) + ' * ' + str(item.height) + ' * ' + str(item.depth))
-    print("volume : ", int(item.width) * int(item.height) * int(item.depth))
-    print("peso : ", int(item.weight))
-    print("***************************************************")
-    """
+for item in truck_bin.items:
     volume_fitted_items += int(item.width) * int(item.height) * int(item.depth)
 
 print('space utilization : {}%'.format(round(volume_fitted_items / int(volume) * 100, 2)))
 print('residual volume : ', int(volume) - volume_fitted_items)
-print("gravity distribution : ", camion.gravity)
+print("gravity distribution : ", truck_bin.gravity)
 print("***************************************************")
 
-#print(camion.items)
-# draw results
-painter = Painter(camion)
+# Draw results
+painter = Painter(truck_bin)
 fig = painter.plotBoxAndItems(
-    title=camion.partno,
-    alpha=0.6,   # Trasparenza
+    title=truck_bin.partno,
+    alpha=0.6,   # Transparency
     write_num=True,
     fontsize=10,
     alpha_proportional=True,
     top_face_alpha_color=True
 )
+# fig.show()
 
 print("***************************************************")
-print(f"UNFITTED ITEMS (con misure accettabili) in baia {baia.numero}:")
+print(f"UNFITTED ITEMS (with acceptable dimensions) in bay {bay.number}:")
 unfitted_names = ''
 volume_unfitted_items = 0  # Total volume of unfitted items
-for item in baia.packer.unfit_items:
+for item in bay.packer.unfit_items:
     print("***************************************************")
-    print("bancale numero : ", item.partno)
-    print('tipo : ', item.name)
-    print("colore : ", item.color)
-    print("Larg*Lung*Alt : ", str(item.width) + ' * ' + str(item.height) + ' * ' + str(item.depth))
+    print("Pallet stack number : ", item.partno)
+    print('type : ', item.name)
+    print("color : ", item.color)
+    print("Width*Length*Height : ", str(item.width) + ' * ' + str(item.height) + ' * ' + str(item.depth))
     print("volume : ", int(item.width) * int(item.height) * int(item.depth))
-    print("peso : ", int(item.weight))
+    print("weight : ", int(item.weight))
     volume_unfitted_items += int(item.width) * int(item.height) * int(item.depth)
     unfitted_names += '{},'.format(item.partno)
     print("***************************************************")
 print("***************************************************")
-#print(f'BANCALI con misure accettabili NON CARICATI in BAIA {baia.numero}: ', unfitted_names)
-print(f'VOLUME BANCALI con misure accettabili NON CARICATI in BAIA {baia.numero}: ', volume_unfitted_items)
+print(f'VOLUME of pallet stacks with acceptable dimensions NOT LOADED in BAY {bay.number}: ', volume_unfitted_items)
