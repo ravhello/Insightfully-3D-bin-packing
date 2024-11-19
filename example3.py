@@ -9,7 +9,7 @@ This example is used to demonstrate that the algorithm does not optimize.
 '''
 
 # init packing function
-packer = Packer()
+packer = Packer( name = 'Example Packer')
 #  init bin 
 box = Bin('example3', (6, 1, 5), 100,0,put_type=0)
 #  add item
@@ -79,4 +79,8 @@ fig = painter.plotBoxAndItems(
     write_num=False,
     fontsize=10
 )
-fig.show()
+# Explicitly display the plot if fig is None
+if fig is not None:
+    fig.show()  # Display the figure using Plotly
+else:
+    print("Error: Plotly figure could not be generated.")

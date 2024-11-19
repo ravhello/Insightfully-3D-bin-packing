@@ -10,7 +10,7 @@ Check stability on item - first rule
 '''
 
 # init packing function
-packer = Packer()
+packer = Packer( name = 'Example Packer')
 #  init bin 
 box = Bin('example5', (5, 4, 3), 100,0,0)
 #  add item
@@ -81,4 +81,8 @@ for b in packer.bins:
         fontsize=10
     )
 
-fig.show()
+# Explicitly display the plot if fig is None
+if fig is not None:
+    fig.show()  # Display the figure using Plotly
+else:
+    print("Error: Plotly figure could not be generated.")

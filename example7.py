@@ -11,7 +11,7 @@ If you have multiple boxes, you can change distribute_items to achieve different
 '''
 
 # init packing function
-packer = Packer()
+packer = Packer( name = 'Example Packer')
 #  init bin 
 box = Bin('example7-Bin1', (5, 5, 5), 100,0,0)
 box2 = Bin('example7-Bin2', (3, 3, 5), 100,0,0)
@@ -108,4 +108,8 @@ print('unpack item volumn : ',volume_f)
 stop = time.time()
 print('used time : ',stop - start)
 
-fig.show()
+# Explicitly display the plot if fig is None
+if fig is not None:
+    fig.show()  # Display the figure using Plotly
+else:
+    print("Error: Plotly figure could not be generated.")

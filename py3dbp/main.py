@@ -778,13 +778,65 @@ class Painter:
                 ))
 
     def _plotCylinder(self, fig, x, y, z, dx, dy, dz, color='red', opacity=0.5, text="", fontsize=10):
-        """ Auxiliary function to plot a Cylinder """
-        fig.add_trace(go.Cylinder(
-            x0=x+dx/2, y0=y+dy/2, z0=z,
-            x1=x+dx/2, y1=y+dy/2, z1=z+dz,
-            radius=dx/2,
-            color=color,
-            opacity=opacity,
-            hovertext=text,
-            hoverinfo='text'
-        ))
+        """ Auxiliary function to plot a Cylinder as a 3D surface using Scatter3d. """
+        # Number of points for approximating the cylinder
+        num_points = 50
+
+        # Create cylinder coordinates
+        theta = np.linspace(0, 2 * np.pi, num_points)
+        z_vals = np.linspace(z, z + dz, num_points)
+
+        # Create a mesh grid for cylinder surface
+        theta_grid, z_grid = np.meshgrid(theta, z_vals)
+        x_grid = x + (dx / 2) * np.cos(theta_grid)
+        y_grid = y + (dy / 2) * np.sin(theta_grid)
+
+        # Flatten the grid for Scatter3d
+        x_vals = x_grid.flatten()
+        y_vals = y_grid.flatten()
+        z_vals = z_grid.flatten()
+
+        # Add cylinder surface as a Scatter3d trace
+        fig.add_trace(
+            go.Scatter3d(
+                x=x_vals,
+                y=y_vals,
+                z=z_vals,
+                mode='markers',
+                marker=dict(
+                    size=2,
+                    color=color,
+                    opacity=opacity,
+                ),
+                hovertext=text,
+                hoverinfo='text',
+            )
+        )
+
+        # Optionally add top and bottom circles
+        top_circle_x = x + (dx / 2) * np.cos(theta)
+        top_circle_y = y + (dy / 2) * np.sin(theta)
+        bottom_circle_x = x + (dx / 2) * np.cos(theta)
+        bottom_circle_y = y + (dy / 2) * np.sin(theta)
+
+        fig.add_trace(
+            go.Scatter3d(
+                x=top_circle_x,
+                y=top_circle_y,
+                z=[z + dz] * num_points,
+                mode='lines',
+                line=dict(color=color, width=2),
+                hoverinfo='skip',
+            )
+        )
+
+        fig.add_trace(
+            go.Scatter3d(
+                x=bottom_circle_x,
+                y=bottom_circle_y,
+                z=[z] * num_points,
+                mode='lines',
+                line=dict(color=color, width=2),
+                hoverinfo='skip',
+            )
+        )

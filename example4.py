@@ -9,7 +9,7 @@ This example can be used to test large batch calculation time and binding functi
 '''
 
 # init packing function
-packer = Packer()
+packer = Packer( name = 'Example Packer')
 
 # Evergreen Real Container (20ft Steel Dry Cargo Container)
 # Unit cm/kg
@@ -150,4 +150,8 @@ for box in packer.bins:
         write_num=False,
         fontsize=6
     )
-fig.show()
+# Explicitly display the plot if fig is None
+if fig is not None:
+    fig.show()  # Display the figure using Plotly
+else:
+    print("Error: Plotly figure could not be generated.")

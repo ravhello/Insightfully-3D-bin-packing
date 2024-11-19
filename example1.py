@@ -9,7 +9,7 @@ This example is used to demonstrate the mixed packing of cube and cylinder.
 '''
 
 # init packing function
-packer = Packer()
+packer = Packer(name = 'Example Packer')
 #  init bin
 box = Bin('example1', (5.6875, 10.75, 15.0), 70.0,0,0)
 packer.addBin(box)
@@ -85,4 +85,9 @@ fig = painter.plotBoxAndItems(
     write_num=False,
     fontsize=5
 )
-fig.show()
+
+# Explicitly display the plot if fig is None
+if fig is not None:
+    fig.show()  # Display the figure using Plotly
+else:
+    print("Error: Plotly figure could not be generated.")

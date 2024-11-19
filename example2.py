@@ -9,7 +9,7 @@ This case is used to demonstrate an example of a packing complex situation.
 '''
 
 # init packing function
-packer = Packer()
+packer = Packer(name = 'Example Packer')
 #  init bin
 box = Bin('example2',(30, 10, 15), 99,0,1)
 packer.addBin(box)
@@ -102,4 +102,8 @@ fig = painter.plotBoxAndItems(
     write_num=False,
     fontsize=10
 )
-fig.show()
+# Explicitly display the plot if fig is None
+if fig is not None:
+    fig.show()  # Display the figure using Plotly
+else:
+    print("Error: Plotly figure could not be generated.")
