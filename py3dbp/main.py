@@ -360,7 +360,7 @@ class Bin:
 
 class Packer:
 
-    def __init__(self, name):
+    def __init__(self, name=None):
         ''' '''
         self.bins = []
         self.items = []
@@ -368,9 +368,9 @@ class Packer:
         self.total_items = 0
         self.binding = []
         # self.apex = []
-        self.name = name
+        self.name = name if name else "DefaultPacker"
         if external_logger:
-            external_logger.info(f'Aggiunto packer: {name}')
+            external_logger.info(f'Aggiunto packer: {self.name}')
 
 
     def addBin(self, bin):
