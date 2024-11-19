@@ -66,7 +66,6 @@ packer.pack(
 )
 
 # Print and visualize results
-figures = []
 for idx, b in enumerate(packer.bins):
     print("***************************************************")
     print(f"** {b.string()} **")
@@ -98,7 +97,7 @@ for idx, b in enumerate(packer.bins):
     print(f"gravity distribution : {b.gravity}")
     print("***************************************************")
 
-    # Generate plot for the current bin
+    # Generate and show plot for the current bin
     painter = Painter(b)
     fig = painter.plotBoxAndItems(
         title=b.partno,
@@ -106,32 +105,7 @@ for idx, b in enumerate(packer.bins):
         write_num=False,
         fontsize=10
     )
-    figures.append(fig)
 
-print("***************************************************")
-print("UNFITTED ITEMS:")
-volume_f = 0
-unfitted_name = []
-
-for item in packer.unfit_items:
-    item_volume = float(item.width) * float(item.height) * float(item.depth)
-    volume_f += item_volume
-    unfitted_name.append(item.partno)
-    print("***************************************************")
-    print(f'name : {item.name}')
-    print(f"partno : {item.partno}")
-    print(f"color : {item.color}")
-    print(f"W*H*D : {item.width} * {item.height} * {item.depth}")
-    print(f"volume : {item_volume}")
-    print(f"weight : {item.weight}")
-    print("***************************************************")
-
-print("***************************************************")
-print(f'unpack items : {", ".join(unfitted_name)}')
-print(f'unpack item volume : {volume_f}')
-
-stop = time.time()
-print(f'used time : {stop - start}')
-
-# Display all generated figures
-fig.show()
+   
+    fig.show()  # Display the figure for the current bin
+    
