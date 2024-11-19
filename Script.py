@@ -483,7 +483,7 @@ for bay in bays:
             alpha_proportional=True,
             top_face_alpha_color=True
         )
-        # fig.show()
+        fig.show()
 
     print("***************************************************")
     print(f"UNFITTED ITEMS (with acceptable dimensions) in bay {bay.number}:")
@@ -575,7 +575,7 @@ fig = painter.plotBoxAndItems(
     alpha_proportional=True,
     top_face_alpha_color=True
 )
-# fig.show()
+fig.show()
 
 print("***************************************************")
 print(f"UNFITTED ITEMS (with acceptable dimensions) in bay {bay.number}:")
