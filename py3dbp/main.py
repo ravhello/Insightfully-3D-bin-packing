@@ -370,7 +370,20 @@ class Packer:
         # self.apex = []
         self.name = name if name else "DefaultPacker"
         if external_logger:
-            external_logger.info(f'Aggiunto packer: {self.name}')
+            external_logger.info(f'Added packer: {self.name}')
+            def _generate_unique_name(self, base_name):
+                ''' Generate a unique name if the base name already exists '''
+                existing_names = {bin.partno for bin in self.bins}
+                if base_name not in existing_names:
+                    return base_name
+                
+                counter = 1
+                new_name = f"{base_name}_{counter}"
+                while new_name in existing_names:
+                    counter += 1
+                    new_name = f"{base_name}_{counter}"
+                
+                return new_name
 
 
     def addBin(self, bin):
@@ -654,40 +667,29 @@ class Painter:
         self.depth = float(bin.depth)
 
     def plotBoxAndItems(self, title="", alpha=0.2, write_num=False, fontsize=10, alpha_proportional=False, top_face_alpha_color=False):
-        """ side effective. Plot the Bin and the items it contains. """
-        #if external_logger:
-        #    external_logger.info('Inizio della funzione plotBoxAndItems.')
+        """ Side effect: Plot the Bin and the items it contains. """
         fig = go.Figure()
 
-        # plot bin as wireframe
+        # Plot bin as wireframe
         self._plotBinWireframe(fig, 0, 0, 0, float(self.width), float(self.height), float(self.depth), color='black')
 
-        # trova il peso massimo degli item nel bin
-        max_weight = max([item.weight for item in self.items]) if len(self.items) > 0 else None
+        # Find max weight for proportional alpha
+        max_weight = max([item.weight for item in self.items]) if len(self.items) > 0 else 1
 
-        counter = 0
-        # fit rotation type
         for item in self.items:
-            rt = item.rotation_type
             x, y, z = item.position
             w, h, d = item.getDimension()
             color = item.color
             text = item.partno if write_num else ""
 
             if item.typeof == 'cube':
-                # plot item of cube
-                if top_face_alpha_color:
-                    top_face_alpha = (1 - (item.loadbear / max_weight)) if item.loadbear is not None and max_weight is not None else None
                 if alpha_proportional:
-                    alpha = item.weight / max_weight if item.weight is not None and max_weight is not None else alpha
+                    alpha = item.weight / max_weight if item.weight is not None else alpha
                 self._plotCube(fig, float(x), float(y), float(z), float(w), float(h), float(d), color=color, opacity=alpha, text=text, fontsize=fontsize)
             elif item.typeof == 'cylinder':
-                # plot item of cylinder
                 self._plotCylinder(fig, float(x), float(y), float(z), float(w), float(h), float(d), color=color, opacity=alpha, text=text, fontsize=fontsize)
-            
-            counter += 1
 
-        # Impostazioni del grafico
+        # Configure plot layout
         fig.update_layout(
             title=title,
             scene=dict(
@@ -700,7 +702,8 @@ class Painter:
             height=600
         )
 
-        fig.show()
+        return fig  # Return the generated figure
+
 
     def _plotBinWireframe(self, fig, x, y, z, dx, dy, dz, color='black'):
         """ Auxiliary function to plot a wireframe cube for the bin. """

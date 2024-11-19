@@ -87,7 +87,5 @@ fig = painter.plotBoxAndItems(
 )
 
 # Explicitly display the plot if fig is None
-if fig is not None:
-    fig.show()  # Display the figure using Plotly
-else:
-    print("Error: Plotly figure could not be generated.")
+
+fig.show()  # Display the figure using Plotly
