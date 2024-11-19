@@ -37,7 +37,7 @@ class Item:
         self.weight = weight
         # Packing priority level, choose 1-3
         self.level = level
-        # Load bearing capacity
+        # Load bearing capacity (in terms of kilos): if 0 it means that the item is non stackable
         self.loadbear = loadbear
         # Upside down? True or False
         self.updown = updown if typeof == 'cube' else False
@@ -662,6 +662,8 @@ class Painter:
             if item.typeof == 'cube':
                 if alpha_proportional:
                     alpha = item.weight / max_weight if item.weight is not None else alpha
+                if top_face_alpha_color:
+                    top_alpha = max(alpha, 1 - (item.loadbear / max_weight))
                 self._plotCube(fig, float(x), float(y), float(z), float(w), float(h), float(d), color=color, opacity=alpha, text=text, fontsize=fontsize, show_edges=True, item_name=item.partno)
             elif item.typeof == 'cylinder':
                 self._plotCylinder(fig, float(x), float(y), float(z), float(w), float(h), float(d), color=color, opacity=alpha, text=text, fontsize=fontsize, item_name=item.partno)
@@ -716,8 +718,8 @@ class Painter:
                 name=f'Bin - {edge[2]}'
             ))
 
-    def _plotCube(self, fig, x, y, z, dx, dy, dz, color='red', opacity=0.5, text="", fontsize=10, show_edges=False, item_name=""):
-        """ Auxiliary function to plot a cube. """
+    def _plotCube(self, fig, x, y, z, dx, dy, dz, color='red', opacity=0.5, text="", fontsize=10, show_edges=False, item_name="", top_alpha=None):
+        """ Auxiliary function to plot a cube with optional top face transparency adjustment. """
         # Define the vertices of the cube
         vertices = [
             [x, y, z],
@@ -729,14 +731,23 @@ class Painter:
             [x+dx, y+dy, z+dz],
             [x, y+dy, z+dz]
         ]
-        
+
         # Define the 12 lines (edges) of the cube
         edges = [
-            [vertices[0], vertices[1], f'{item_name} (cube) - Lower north edge'], [vertices[1], vertices[2], f'{item_name} (cube) - Lower east edge'], [vertices[2], vertices[3], f'{item_name} (cube) - Lower south edge'], [vertices[3], vertices[0], f'{item_name} (cube) - Lower west edge'],
-            [vertices[4], vertices[5], f'{item_name} (cube) - Upper north edge'], [vertices[5], vertices[6], f'{item_name} (cube) - Upper east edge'], [vertices[6], vertices[7], f'{item_name} (cube) - Upper south edge'], [vertices[7], vertices[4], f'{item_name} (cube) - Upper west edge'],
-            [vertices[0], vertices[4], f'{item_name} (cube) - North vertical edge'], [vertices[1], vertices[5], f'{item_name} (cube) - East vertical edge'], [vertices[2], vertices[6], f'{item_name} (cube) - South vertical edge'], [vertices[3], vertices[7], f'{item_name} (cube) - West vertical edge']
+            [vertices[0], vertices[1], f'{item_name} (cube) - Lower north edge'], 
+            [vertices[1], vertices[2], f'{item_name} (cube) - Lower east edge'], 
+            [vertices[2], vertices[3], f'{item_name} (cube) - Lower south edge'], 
+            [vertices[3], vertices[0], f'{item_name} (cube) - Lower west edge'],
+            [vertices[4], vertices[5], f'{item_name} (cube) - Upper north edge'], 
+            [vertices[5], vertices[6], f'{item_name} (cube) - Upper east edge'], 
+            [vertices[6], vertices[7], f'{item_name} (cube) - Upper south edge'], 
+            [vertices[7], vertices[4], f'{item_name} (cube) - Upper west edge'],
+            [vertices[0], vertices[4], f'{item_name} (cube) - North vertical edge'], 
+            [vertices[1], vertices[5], f'{item_name} (cube) - East vertical edge'], 
+            [vertices[2], vertices[6], f'{item_name} (cube) - South vertical edge'], 
+            [vertices[3], vertices[7], f'{item_name} (cube) - West vertical edge']
         ]
-        
+
         # Create a 3D mesh for the cube
         fig.add_trace(go.Mesh3d(
             x=[v[0] for v in vertices],
@@ -761,6 +772,19 @@ class Painter:
                     line=dict(color='black', width=2),
                     name=edge[2]
                 ))
+
+        # Add a top face if top_alpha is specified and differs from opacity
+        if top_alpha is not None and top_alpha != opacity:
+            fig.add_trace(go.Surface(
+                x=[[x, x+dx], [x, x+dx]],
+                y=[[y, y], [y+dy, y+dy]],
+                z=[[z+dz, z+dz], [z+dz, z+dz]],
+                showscale=False,  # No color scale
+                opacity=top_alpha,
+                colorscale=[[0, color], [1, color]],  # Single color
+                hoverinfo='skip'  # No hover info for the face
+            ))
+
 
     def _plotCylinder(self, fig, x, y, z, dx, dy, dz, color='red', opacity=0.5, text="", fontsize=10, item_name=""):
         """ Auxiliary function to plot a Cylinder as a 3D surface using Scatter3d. """
