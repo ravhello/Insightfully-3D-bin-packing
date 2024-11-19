@@ -662,21 +662,23 @@ class Painter:
             if item.typeof == 'cube':
                 if alpha_proportional:
                     alpha = item.weight / max_weight if item.weight is not None else alpha
-                self._plotCube(fig, float(x), float(y), float(z), float(w), float(h), float(d), color=color, opacity=alpha, text=text, fontsize=fontsize)
+                self._plotCube(fig, float(x), float(y), float(z), float(w), float(h), float(d), color=color, opacity=alpha, text=text, fontsize=fontsize, show_edges=True, item_name=item.partno)
             elif item.typeof == 'cylinder':
-                self._plotCylinder(fig, float(x), float(y), float(z), float(w), float(h), float(d), color=color, opacity=alpha, text=text, fontsize=fontsize)
+                self._plotCylinder(fig, float(x), float(y), float(z), float(w), float(h), float(d), color=color, opacity=alpha, text=text, fontsize=fontsize, item_name=item.partno)
 
         # Configure plot layout
         fig.update_layout(
             title=title,
             scene=dict(
-                xaxis_title='X Axis',
-                yaxis_title='Y Axis',
-                zaxis_title='Z Axis',
-                aspectmode='data'
+            xaxis_title='X Axis',
+            yaxis_title='Y Axis',
+            zaxis_title='Z Axis',
+            aspectmode='data'
             ),
-            width=800,
-            height=600
+            autosize=True,  # Ensure it resizes automatically
+            width=None,  # Do not specify a fixed width
+            height=None,  # Do not specify a fixed height
+            template='plotly_white'  # Optional, improves aesthetics
         )
 
         return fig  # Return the generated figure
@@ -698,9 +700,9 @@ class Painter:
         
         # Define the 12 lines (edges) of the cube
         edges = [
-            [vertices[0], vertices[1]], [vertices[1], vertices[2]], [vertices[2], vertices[3]], [vertices[3], vertices[0]],
-            [vertices[4], vertices[5]], [vertices[5], vertices[6]], [vertices[6], vertices[7]], [vertices[7], vertices[4]],
-            [vertices[0], vertices[4]], [vertices[1], vertices[5]], [vertices[2], vertices[6]], [vertices[3], vertices[7]]
+            [vertices[0], vertices[1], 'Lower north edge'], [vertices[1], vertices[2], 'Lower east edge'], [vertices[2], vertices[3], 'Lower south edge'], [vertices[3], vertices[0], 'Lower west edge'],
+            [vertices[4], vertices[5], 'Upper north edge'], [vertices[5], vertices[6], 'Upper east edge'], [vertices[6], vertices[7], 'Upper south edge'], [vertices[7], vertices[4], 'Upper west edge'],
+            [vertices[0], vertices[4], 'North vertical edge'], [vertices[1], vertices[5], 'East vertical edge'], [vertices[2], vertices[6], 'South vertical edge'], [vertices[3], vertices[7], 'West vertical edge']
         ]
         
         # Add the edges to the plot
@@ -710,10 +712,11 @@ class Painter:
                 y=[edge[0][1], edge[1][1]],
                 z=[edge[0][2], edge[1][2]],
                 mode='lines',
-                line=dict(color=color, width=2)
+                line=dict(color=color, width=2),
+                name=f'Bin - {edge[2]}'
             ))
 
-    def _plotCube(self, fig, x, y, z, dx, dy, dz, color='red', opacity=0.5, text="", fontsize=10, show_edges=False):
+    def _plotCube(self, fig, x, y, z, dx, dy, dz, color='red', opacity=0.5, text="", fontsize=10, show_edges=False, item_name=""):
         """ Auxiliary function to plot a cube. """
         # Define the vertices of the cube
         vertices = [
@@ -729,9 +732,9 @@ class Painter:
         
         # Define the 12 lines (edges) of the cube
         edges = [
-            [vertices[0], vertices[1]], [vertices[1], vertices[2]], [vertices[2], vertices[3]], [vertices[3], vertices[0]],
-            [vertices[4], vertices[5]], [vertices[5], vertices[6]], [vertices[6], vertices[7]], [vertices[7], vertices[4]],
-            [vertices[0], vertices[4]], [vertices[1], vertices[5]], [vertices[2], vertices[6]], [vertices[3], vertices[7]]
+            [vertices[0], vertices[1], f'{item_name} (cube) - Lower north edge'], [vertices[1], vertices[2], f'{item_name} (cube) - Lower east edge'], [vertices[2], vertices[3], f'{item_name} (cube) - Lower south edge'], [vertices[3], vertices[0], f'{item_name} (cube) - Lower west edge'],
+            [vertices[4], vertices[5], f'{item_name} (cube) - Upper north edge'], [vertices[5], vertices[6], f'{item_name} (cube) - Upper east edge'], [vertices[6], vertices[7], f'{item_name} (cube) - Upper south edge'], [vertices[7], vertices[4], f'{item_name} (cube) - Upper west edge'],
+            [vertices[0], vertices[4], f'{item_name} (cube) - North vertical edge'], [vertices[1], vertices[5], f'{item_name} (cube) - East vertical edge'], [vertices[2], vertices[6], f'{item_name} (cube) - South vertical edge'], [vertices[3], vertices[7], f'{item_name} (cube) - West vertical edge']
         ]
         
         # Create a 3D mesh for the cube
@@ -743,7 +746,8 @@ class Painter:
             opacity=opacity,
             alphahull=0,
             hovertext=text,
-            hoverinfo='text'
+            hoverinfo='text',
+            name='Cube'
         ))
 
         # Optionally add the edges of the cube
@@ -754,10 +758,11 @@ class Painter:
                     y=[edge[0][1], edge[1][1]],
                     z=[edge[0][2], edge[1][2]],
                     mode='lines',
-                    line=dict(color='black', width=2)
+                    line=dict(color='black', width=2),
+                    name=edge[2]
                 ))
 
-    def _plotCylinder(self, fig, x, y, z, dx, dy, dz, color='red', opacity=0.5, text="", fontsize=10):
+    def _plotCylinder(self, fig, x, y, z, dx, dy, dz, color='red', opacity=0.5, text="", fontsize=10, item_name=""):
         """ Auxiliary function to plot a Cylinder as a 3D surface using Scatter3d. """
         # Number of points for approximating the cylinder
         num_points = 50
@@ -790,6 +795,7 @@ class Painter:
                 ),
                 hovertext=text,
                 hoverinfo='text',
+                name='Cylinder'
             )
         )
 
@@ -807,6 +813,7 @@ class Painter:
                 mode='lines',
                 line=dict(color=color, width=2),
                 hoverinfo='skip',
+                name=f'{item_name} (cylinder) - Top edge'
             )
         )
 
@@ -818,5 +825,6 @@ class Painter:
                 mode='lines',
                 line=dict(color=color, width=2),
                 hoverinfo='skip',
+                name=f'{item_name} (cylinder) - Bottom edge'
             )
         )
