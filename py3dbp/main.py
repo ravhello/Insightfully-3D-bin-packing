@@ -346,23 +346,26 @@ class Packer:
         self.unfit_items = []
         self.total_items = 0
         self.binding = []
-        # self.apex = []
-        self.name = name if name else "DefaultPacker"
+        self.name = self._generate_unique_name(name if name else "DefaultPacker")
         if external_logger:
             external_logger.info(f'Added packer: {self.name}')
-            def _generate_unique_name(self, base_name):
-                ''' Generate a unique name if the base name already exists '''
-                existing_names = {bin.partno for bin in self.bins}
-                if base_name not in existing_names:
-                    return base_name
-                
-                counter = 1
-                new_name = f"{base_name}_{counter}"
-                while new_name in existing_names:
-                    counter += 1
-                    new_name = f"{base_name}_{counter}"
-                
-                return new_name
+
+    def _generate_unique_name(self, base_name):
+        ''' Generate a unique name if the base name already exists '''
+        existing_names = {bin.partno for bin in self.bins}
+        if base_name not in existing_names:
+            return base_name
+        
+        counter = 1
+        new_name = f"{base_name}_{counter}"
+        while new_name in existing_names:
+            counter += 1
+            new_name = f"{base_name}_{counter}"
+        
+        if external_logger:
+            external_logger.warning(f'Name conflict for {base_name}. Assigned new name: {new_name}')
+        
+        return new_name
 
 
     def addBin(self, bin):
