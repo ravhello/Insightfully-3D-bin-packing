@@ -664,7 +664,7 @@ class Painter:
         self.height = float(bin.height)
         self.depth = float(bin.depth)
 
-    def plotBoxAndItems(self, title="", alpha=0.2, write_name=True, fontsize=10, alpha_proportional=False, top_face_alpha_color=False, show_edges=True):
+    def plotBoxAndItems(self, title="", alpha=0.2, write_name=True, fontsize=10, alpha_proportional=False, top_face_proportional=False, show_edges=True):
         """ Side effect: Plot the Bin and the items it contains. """
         fig = go.Figure()
 
@@ -682,8 +682,9 @@ class Painter:
             # Calculate alpha and top_alpha
             if alpha_proportional:
                 alpha = item.weight / max_weight if item.weight is not None else alpha
-            if top_face_alpha_color:
-                top_alpha = max(alpha, 1 - (item.loadbear / max_weight))
+            if top_face_proportional:
+                top_alpha = 1 - (item.loadbear / max_weight)
+                top_alpha = max(0, min(top_alpha, 1))  # Ensure alpha is between 0 and 1
             else:
                 top_alpha = alpha
 
@@ -691,12 +692,12 @@ class Painter:
                 # Plot the cube with optional top face adjustment
                 self._plotCube(fig, float(x), float(y), float(z), float(w), float(h), float(d),
                             color=color, opacity=alpha, text=text, fontsize=fontsize,
-                            show_edges=show_edges, item_name=item.partno, top_alpha=top_alpha)
+                            show_edges=show_edges, item_name=item.partno, top_alpha=top_alpha, top_face_proportional=top_face_proportional)
             elif item.typeof == 'cylinder':
                 # Plot cylinder if applicable
                 self._plotCylinder(fig, float(x), float(y), float(z), float(w), float(h), float(d),
                             color=color, opacity=alpha, text=text, fontsize=fontsize,
-                            show_edges=show_edges, item_name=item.partno, top_alpha=top_alpha)
+                            show_edges=show_edges, item_name=item.partno, top_alpha=top_alpha, top_face_proportional=top_face_proportional)
             else:
                 if external_logger:
                     external_logger.warning(f'Item {item.partno} has an invalid type: {item.typeof}')
@@ -755,31 +756,74 @@ class Painter:
                 showlegend=False
             ))
 
-    def _plotCube(self, fig, x, y, z, dx, dy, dz, color='red', opacity=0.5, text="", fontsize=10, show_edges=True, item_name="", top_alpha=None):
+    def _plotCube(self, fig, x, y, z, dx, dy, dz, color='red', opacity=0.5, text="", fontsize=10, show_edges=True, item_name="", top_alpha=None, top_face_proportional=False):
         """ Auxiliary function to plot a cube with optional top face transparency adjustment. """
         if top_alpha is None:
             top_alpha = opacity  # Default to opacity if not provided
-            
+
         # Define the vertices of the cube
         vertices = [
-            [x, y, z],
-            [x+dx, y, z],
-            [x+dx, y+dy, z],
-            [x, y+dy, z],
-            [x, y, z+dz],
-            [x+dx, y, z+dz],
-            [x+dx, y+dy, z+dz],
-            [x, y+dy, z+dz]
+            [x, y, z],           # 0
+            [x+dx, y, z],        # 1
+            [x+dx, y+dy, z],     # 2
+            [x, y+dy, z],        # 3
+            [x, y, z+dz],        # 4
+            [x+dx, y, z+dz],     # 5
+            [x+dx, y+dy, z+dz],  # 6
+            [x, y+dy, z+dz]      # 7
         ]
 
-        # Create a 3D mesh for the cube
+        # Prepare the faces of the cube
+        if top_face_proportional:
+            # Exclude the top face
+            faces = []
+            # Bottom face
+            faces.extend([
+                (0, 1, 2), (0, 2, 3)
+            ])
+            # Front face
+            faces.extend([
+                (3, 2, 6), (3, 6, 7)
+            ])
+            # Back face
+            faces.extend([
+                (0, 1, 5), (0, 5, 4)
+            ])
+            # Left face
+            faces.extend([
+                (0, 3, 7), (0, 7, 4)
+            ])
+            # Right face
+            faces.extend([
+                (1, 2, 6), (1, 6, 5)
+            ])
+        else:
+            # Include all faces
+            faces = []
+            faces.extend([
+                (0, 1, 2), (0, 2, 3),  # Bottom face
+                (4, 5, 6), (4, 6, 7),  # Top face
+                (3, 2, 6), (3, 6, 7),  # Front face
+                (0, 1, 5), (0, 5, 4),  # Back face
+                (0, 3, 7), (0, 7, 4),  # Left face
+                (1, 2, 6), (1, 6, 5)   # Right face
+            ])
+
+        # Create indices for the faces
+        i = [face[0] for face in faces]
+        j = [face[1] for face in faces]
+        k = [face[2] for face in faces]
+
+        # Create a 3D mesh for the cube without the top face if top_face_proportional is True
         fig.add_trace(go.Mesh3d(
             x=[v[0] for v in vertices],
             y=[v[1] for v in vertices],
             z=[v[2] for v in vertices],
+            i=i,
+            j=j,
+            k=k,
             color=color,
             opacity=opacity,
-            alphahull=0,
             hovertext=text,
             hoverinfo='text',
             name=item_name,
@@ -806,13 +850,13 @@ class Painter:
                     showlegend=False
                 ))
 
-        # Add a top face if top_alpha is specified and differs from opacity
-        if top_alpha is not None and top_alpha != opacity:
+        # Add the top face separately if top_face_proportional is True
+        if top_face_proportional:
             fig.add_trace(go.Surface(
                 x=[[x, x+dx], [x, x+dx]],
                 y=[[y, y], [y+dy, y+dy]],
                 z=[[z+dz, z+dz], [z+dz, z+dz]],
-                opacity=top_alpha-opacity,
+                opacity=top_alpha,
                 colorscale=[[0, color], [1, color]],  # Single color
                 showscale=False,  # No color scale
                 hoverinfo='skip',  # No hover info for the face
@@ -820,10 +864,24 @@ class Painter:
                 legendgroup=item_name,
                 showlegend=False
             ))
-        
+        elif top_alpha != opacity:
+            # Add the top face with adjusted opacity if needed
+            fig.add_trace(go.Surface(
+                x=[[x, x+dx], [x, x+dx]],
+                y=[[y, y], [y+dy, y+dy]],
+                z=[[z+dz, z+dz], [z+dz, z+dz]],
+                opacity=top_alpha,
+                colorscale=[[0, color], [1, color]],  # Single color
+                showscale=False,  # No color scale
+                hoverinfo='skip',  # No hover info for the face
+                name=f'{item_name} top face',
+                legendgroup=item_name,
+                showlegend=False
+            ))
+
         # Add optional text label
         if text:
-            # Calcola la posizione centrale del cubo
+            # Calculate the center position of the cube
             x_center = x + dx / 2
             y_center = y + dy / 2
             z_center = z + dz / 2
@@ -839,7 +897,7 @@ class Painter:
                 showlegend=False
             ))
 
-    def _plotCylinder(self, fig, x, y, z, dx, dy, dz, color='red', opacity=0.5, text="", fontsize=10, show_edges=True, item_name="", top_alpha=None):
+    def _plotCylinder(self, fig, x, y, z, dx, dy, dz, color='red', opacity=0.5, text="", fontsize=10, show_edges=True, item_name="", top_alpha=None, top_face_proportional=False):
         """ Auxiliary function to plot a cylinder using parametric representation. """
 
         if top_alpha is None:
@@ -853,8 +911,8 @@ class Painter:
         x_center = x + dx / 2
         y_center = y + dy / 2
 
-        # Parametrize the cylinder surface
-        x_surface, y_surface, z_surface = self.cylinder(radius, height, a=z)
+        # Parametrize the cylinder surface (without top face if needed)
+        x_surface, y_surface, z_surface = self.cylinder(radius, height, a=z, include_top=not top_face_proportional)
         x_surface += x_center
         y_surface += y_center
 
@@ -890,23 +948,46 @@ class Painter:
             showlegend=False
         ))
 
-        # Plot top face
-        xb_up, yb_up, zb_up = self.disk(radius, z + dz)
-        xb_up += x_center
-        yb_up += y_center
+        # Add the top face separately if needed
+        if top_face_proportional:
+            # Plot top face with adjusted opacity
+            xb_up, yb_up, zb_up = self.disk(radius, z + dz)
+            xb_up += x_center
+            yb_up += y_center
 
-        fig.add_trace(go.Surface(
-            x=xb_up,
-            y=yb_up,
-            z=zb_up,
-            colorscale=[[0, color], [1, color]],
-            opacity=top_alpha,
-            showscale=False,
-            hoverinfo='skip',
-            name=f'{item_name} top face',
-            legendgroup=item_name,
-            showlegend=False
-        ))
+            fig.add_trace(go.Surface(
+                x=xb_up,
+                y=yb_up,
+                z=zb_up,
+                colorscale=[[0, color], [1, color]],
+                opacity=top_alpha,
+                showscale=False,
+                hoverinfo='skip',
+                name=f'{item_name} top face',
+                legendgroup=item_name,
+                showlegend=False
+            ))
+        elif top_alpha != opacity:
+            # Plot top face with specified top_alpha
+            xb_up, yb_up, zb_up = self.disk(radius, z + dz)
+            xb_up += x_center
+            yb_up += y_center
+
+            fig.add_trace(go.Surface(
+                x=xb_up,
+                y=yb_up,
+                z=zb_up,
+                colorscale=[[0, color], [1, color]],
+                opacity=top_alpha,
+                showscale=False,
+                hoverinfo='skip',
+                name=f'{item_name} top face',
+                legendgroup=item_name,
+                showlegend=False
+            ))
+        else:
+            # Plot top face as part of the cylinder surface (already plotted)
+            pass  # No action needed
 
         # Plot edges if requested
         if show_edges:
@@ -917,7 +998,6 @@ class Painter:
             yb_low_edge += y_center
             xb_up_edge += x_center
             yb_up_edge += y_center
-
 
             # Bottom edge
             fig.add_trace(go.Scatter3d(
@@ -959,18 +1039,28 @@ class Painter:
                 hoverinfo='skip',
                 showlegend=False
             ))
-    # Supporting functions for cylinder and boundary circle parametrization
+
+    # Modifica della funzione di parametrizzazione del cilindro
     @staticmethod
-    def cylinder(r, h, a=0, nt=100, nv=50):
+    def cylinder(r, h, a=0, nt=100, nv=50, include_top=True):
         """
         Parametrize the cylinder of radius r, height h, base at z=a.
+        If include_top is False, the top surface is not included.
         """
         theta = np.linspace(0, 2 * np.pi, nt)
         v = np.linspace(a, a + h, nv)
-        theta, v = np.meshgrid(theta, v)
-        x = r * np.cos(theta)
-        y = r * np.sin(theta)
-        z = v
+        theta_grid, v_grid = np.meshgrid(theta, v)
+        x = r * np.cos(theta_grid)
+        y = r * np.sin(theta_grid)
+        z = v_grid
+
+        if not include_top:
+            # Exclude the top layer of z values
+            mask = z < (a + h)
+            x = np.where(mask, x, np.nan)
+            y = np.where(mask, y, np.nan)
+            z = np.where(mask, z, np.nan)
+
         return x, y, z
 
     @staticmethod

@@ -481,9 +481,8 @@ for bay in bays:
             write_name=True,
             fontsize=10,
             alpha_proportional=True,
-            top_face_alpha_color=True
+            top_face_proportional=True
         )
-        fig.show()
 
     print("***************************************************")
     print(f"UNFITTED ITEMS (with acceptable dimensions) in bay {bay.number}:")
@@ -570,12 +569,11 @@ painter = Painter(truck_bin)
 fig = painter.plotBoxAndItems(
     title=truck_bin.partno,
     alpha=0.6,   # Transparency
-    write_num=True,
+    write_name=True,
     fontsize=10,
     alpha_proportional=True,
-    top_face_alpha_color=True
+    top_face_proportional=True
 )
-fig.show()
 
 print("***************************************************")
 print(f"UNFITTED ITEMS (with acceptable dimensions) in bay {bay.number}:")
