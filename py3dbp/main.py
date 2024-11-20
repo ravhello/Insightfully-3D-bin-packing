@@ -715,7 +715,9 @@ class Painter:
                 z=[edge[0][2], edge[1][2]],
                 mode='lines',
                 line=dict(color=color, width=2),
-                name=f'Bin - {edge[2]}'
+                name=f'Bin - {edge[2]}',
+                legendgroup='bin',
+                showlegend=False
             ))
 
     def _plotCube(self, fig, x, y, z, dx, dy, dz, color='red', opacity=0.5, text="", fontsize=10, show_edges=False, item_name="", top_alpha=None):
@@ -732,22 +734,6 @@ class Painter:
             [x, y+dy, z+dz]
         ]
 
-        # Define the 12 lines (edges) of the cube
-        edges = [
-            [vertices[0], vertices[1], f'{item_name} (cube) - Lower north edge'], 
-            [vertices[1], vertices[2], f'{item_name} (cube) - Lower east edge'], 
-            [vertices[2], vertices[3], f'{item_name} (cube) - Lower south edge'], 
-            [vertices[3], vertices[0], f'{item_name} (cube) - Lower west edge'],
-            [vertices[4], vertices[5], f'{item_name} (cube) - Upper north edge'], 
-            [vertices[5], vertices[6], f'{item_name} (cube) - Upper east edge'], 
-            [vertices[6], vertices[7], f'{item_name} (cube) - Upper south edge'], 
-            [vertices[7], vertices[4], f'{item_name} (cube) - Upper west edge'],
-            [vertices[0], vertices[4], f'{item_name} (cube) - North vertical edge'], 
-            [vertices[1], vertices[5], f'{item_name} (cube) - East vertical edge'], 
-            [vertices[2], vertices[6], f'{item_name} (cube) - South vertical edge'], 
-            [vertices[3], vertices[7], f'{item_name} (cube) - West vertical edge']
-        ]
-
         # Create a 3D mesh for the cube
         fig.add_trace(go.Mesh3d(
             x=[v[0] for v in vertices],
@@ -758,11 +744,18 @@ class Painter:
             alphahull=0,
             hovertext=text,
             hoverinfo='text',
-            name='Cube'
+            name=item_name,
+            legendgroup=item_name,
+            showlegend=True
         ))
 
         # Optionally add the edges of the cube
         if show_edges:
+            edges = [
+                [vertices[0], vertices[1]], [vertices[1], vertices[2]], [vertices[2], vertices[3]], [vertices[3], vertices[0]],
+                [vertices[4], vertices[5]], [vertices[5], vertices[6]], [vertices[6], vertices[7]], [vertices[7], vertices[4]],
+                [vertices[0], vertices[4]], [vertices[1], vertices[5]], [vertices[2], vertices[6]], [vertices[3], vertices[7]]
+            ]
             for edge in edges:
                 fig.add_trace(go.Scatter3d(
                     x=[edge[0][0], edge[1][0]],
@@ -770,7 +763,9 @@ class Painter:
                     z=[edge[0][2], edge[1][2]],
                     mode='lines',
                     line=dict(color='black', width=2),
-                    name=edge[2]
+                    name=f'{item_name} edge',
+                    legendgroup=item_name,
+                    showlegend=False
                 ))
 
         # Add a top face if top_alpha is specified and differs from opacity
@@ -782,9 +777,11 @@ class Painter:
                 showscale=False,  # No color scale
                 opacity=top_alpha,
                 colorscale=[[0, color], [1, color]],  # Single color
-                hoverinfo='skip'  # No hover info for the face
+                hoverinfo='skip',  # No hover info for the face
+                name=f'{item_name} top face',
+                legendgroup=item_name,
+                showlegend=False
             ))
-
 
     def _plotCylinder(self, fig, x, y, z, dx, dy, dz, color='red', opacity=0.5, text="", fontsize=10, item_name=""):
         """ Auxiliary function to plot a Cylinder as a 3D surface using Scatter3d. """
@@ -819,7 +816,9 @@ class Painter:
                 ),
                 hovertext=text,
                 hoverinfo='text',
-                name='Cylinder'
+                name=item_name,
+                legendgroup=item_name,
+                showlegend=True
             )
         )
 
@@ -837,7 +836,9 @@ class Painter:
                 mode='lines',
                 line=dict(color=color, width=2),
                 hoverinfo='skip',
-                name=f'{item_name} (cylinder) - Top edge'
+                name=f'{item_name} top edge',
+                legendgroup=item_name,
+                showlegend=False
             )
         )
 
@@ -849,6 +850,8 @@ class Painter:
                 mode='lines',
                 line=dict(color=color, width=2),
                 hoverinfo='skip',
-                name=f'{item_name} (cylinder) - Bottom edge'
+                name=f'{item_name} bottom edge',
+                legendgroup=item_name,
+                showlegend=False
             )
         )
