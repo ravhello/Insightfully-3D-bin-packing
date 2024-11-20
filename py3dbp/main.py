@@ -660,30 +660,38 @@ class Painter:
             text = item.partno if write_num else ""
 
             if item.typeof == 'cube':
+                # Calculate alpha and top_alpha
                 if alpha_proportional:
                     alpha = item.weight / max_weight if item.weight is not None else alpha
-                if top_face_alpha_color:
-                    top_alpha = max(alpha, 1 - (item.loadbear / max_weight))
-                self._plotCube(fig, float(x), float(y), float(z), float(w), float(h), float(d), color=color, opacity=alpha, text=text, fontsize=fontsize, show_edges=True, item_name=item.partno)
+                top_alpha = max(alpha, 1 - (item.loadbear / max_weight)) if top_face_alpha_color else alpha
+
+                # Plot the cube with optional top face adjustment
+                self._plotCube(fig, float(x), float(y), float(z), float(w), float(h), float(d),
+                            color=color, opacity=alpha, text=text, fontsize=fontsize,
+                            show_edges=True, item_name=item.partno, top_alpha=top_alpha)
             elif item.typeof == 'cylinder':
-                self._plotCylinder(fig, float(x), float(y), float(z), float(w), float(h), float(d), color=color, opacity=alpha, text=text, fontsize=fontsize, item_name=item.partno)
+                # Plot cylinder if applicable
+                self._plotCylinder(fig, float(x), float(y), float(z), float(w), float(h), float(d),
+                                    color=color, opacity=alpha, text=text, fontsize=fontsize,
+                                    item_name=item.partno)
 
         # Configure plot layout
         fig.update_layout(
             title=title,
             scene=dict(
-            xaxis_title='X Axis',
-            yaxis_title='Y Axis',
-            zaxis_title='Z Axis',
-            aspectmode='data'
+                xaxis_title='X Axis',
+                yaxis_title='Y Axis',
+                zaxis_title='Z Axis',
+                aspectmode='data'
             ),
             autosize=True,  # Ensure it resizes automatically
-            width=None,  # Do not specify a fixed width
-            height=None,  # Do not specify a fixed height
             template='plotly_white'  # Optional, improves aesthetics
         )
 
+        fig.show(config={"displayModeBar": True, "responsive": True})
+
         return fig  # Return the generated figure
+
 
 
     def _plotBinWireframe(self, fig, x, y, z, dx, dy, dz, color='black'):
@@ -774,9 +782,9 @@ class Painter:
                 x=[[x, x+dx], [x, x+dx]],
                 y=[[y, y], [y+dy, y+dy]],
                 z=[[z+dz, z+dz], [z+dz, z+dz]],
-                showscale=False,  # No color scale
-                opacity=top_alpha,
+                opacity=top_alpha-opacity,
                 colorscale=[[0, color], [1, color]],  # Single color
+                showscale=False,  # No color scale
                 hoverinfo='skip',  # No hover info for the face
                 name=f'{item_name} top face',
                 legendgroup=item_name,
