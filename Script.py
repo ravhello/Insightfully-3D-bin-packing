@@ -478,7 +478,7 @@ for bay in bays:
         fig = painter.plotBoxAndItems(
             title=truck_bin.partno,
             alpha=0.6,   # Transparency
-            write_num=True,
+            write_name=True,
             fontsize=10,
             alpha_proportional=True,
             top_face_alpha_color=True

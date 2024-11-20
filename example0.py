@@ -145,6 +145,6 @@ for box in packer.bins:
     fig = painter.plotBoxAndItems(
         title=box.partno,
         alpha=0.2,
-        write_num=True,
+        write_name=True,
         fontsize=10
     )

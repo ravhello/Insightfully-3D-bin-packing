@@ -600,7 +600,11 @@ class Packer:
         # Bin: sorted by volume
         self.bins.sort(key=lambda bin: bin.getVolume(), reverse=bigger_first)
         # Item: sorted by volume -> load bearing -> level -> binding
-        self.items.sort(key=lambda item: (-item.getVolume(), -item.loadbear, item.level))
+        self.items.sort(key=lambda item: (
+            item.level,                                             # Level ascending
+            -item.loadbear,                                         # Loadbear descending
+            -item.getVolume() if bigger_first else item.getVolume() # Volume (reversed if bigger_first=True)
+        ))
         
         # sorted by binding
         if binding != []:
@@ -660,7 +664,7 @@ class Painter:
         self.height = float(bin.height)
         self.depth = float(bin.depth)
 
-    def plotBoxAndItems(self, title="", alpha=0.2, write_num=False, fontsize=10, alpha_proportional=False, top_face_alpha_color=False, show_edges=True):
+    def plotBoxAndItems(self, title="", alpha=0.2, write_name=True, fontsize=10, alpha_proportional=False, top_face_alpha_color=False, show_edges=True):
         """ Side effect: Plot the Bin and the items it contains. """
         fig = go.Figure()
 
@@ -674,7 +678,7 @@ class Painter:
             x, y, z = item.position
             w, h, d = item.getDimension()
             color = item.color
-            text = item.partno if write_num else ""
+            text = item.partno if write_name and 'corner' not in item.name else ""
             # Calculate alpha and top_alpha
             if alpha_proportional:
                 alpha = item.weight / max_weight if item.weight is not None else alpha
@@ -691,8 +695,8 @@ class Painter:
             elif item.typeof == 'cylinder':
                 # Plot cylinder if applicable
                 self._plotCylinder(fig, float(x), float(y), float(z), float(w), float(h), float(d),
-                                    color=color, opacity=alpha, text=text, fontsize=fontsize,
-                                    show_edges=show_edges, item_name=item.partno, top_alpha=top_alpha)
+                            color=color, opacity=alpha, text=text, fontsize=fontsize,
+                            show_edges=show_edges, item_name=item.partno, top_alpha=top_alpha)
             else:
                 if external_logger:
                     external_logger.warning(f'Item {item.partno} has an invalid type: {item.typeof}')
@@ -816,9 +820,27 @@ class Painter:
                 legendgroup=item_name,
                 showlegend=False
             ))
+        
+        # Add optional text label
+        if text:
+            # Calcola la posizione centrale del cubo
+            x_center = x + dx / 2
+            y_center = y + dy / 2
+            z_center = z + dz / 2
+
+            fig.add_trace(go.Scatter3d(
+                x=[x_center],
+                y=[y_center],
+                z=[z_center],
+                mode='text',
+                text=[text],
+                textfont=dict(size=fontsize, color="Black"),
+                hoverinfo='skip',
+                showlegend=False
+            ))
 
     def _plotCylinder(self, fig, x, y, z, dx, dy, dz, color='red', opacity=0.5, text="", fontsize=10, show_edges=True, item_name="", top_alpha=None):
-        """ Auxiliary function to plot a Cylinder as a 3D surface and edges using parametric representation. """
+        """ Auxiliary function to plot a cylinder using parametric representation. """
 
         if top_alpha is None:
             top_alpha = opacity  # Default to opacity if not provided
@@ -827,48 +849,98 @@ class Painter:
         radius = min(dx, dy) / 2
         height = dz
 
+        # Center of the cylinder
+        x_center = x + dx / 2
+        y_center = y + dy / 2
+
         # Parametrize the cylinder surface
         x_surface, y_surface, z_surface = self.cylinder(radius, height, a=z)
+        x_surface += x_center
+        y_surface += y_center
 
         # Add cylinder surface
         fig.add_trace(go.Surface(
-            x=x_surface + (x + radius),
-            y=y_surface + (y + radius),
+            x=x_surface,
+            y=y_surface,
             z=z_surface,
-            colorscale=[[0, color], [1, color]],  # Single-color surface
+            colorscale=[[0, color], [1, color]],
             opacity=opacity,
             showscale=False,
+            hoverinfo='skip',
             name=item_name,
-            hoverinfo='skip',  # Skip hover for the surface
             legendgroup=item_name,
             showlegend=True
         ))
 
-        # Plot boundary circles at top and bottom
-        if show_edges:
-            xb_low, yb_low, zb_low = self.boundary_circle(radius, z)
-            xb_up, yb_up, zb_up = self.boundary_circle(radius, z + dz)
+        # Plot bottom face
+        xb_low, yb_low, zb_low = self.disk(radius, z)
+        xb_low += x_center
+        yb_low += y_center
 
+        fig.add_trace(go.Surface(
+            x=xb_low,
+            y=yb_low,
+            z=zb_low,
+            colorscale=[[0, color], [1, color]],
+            opacity=opacity,
+            showscale=False,
+            hoverinfo='skip',
+            name=f'{item_name} bottom face',
+            legendgroup=item_name,
+            showlegend=False
+        ))
+
+        # Plot top face
+        xb_up, yb_up, zb_up = self.disk(radius, z + dz)
+        xb_up += x_center
+        yb_up += y_center
+
+        fig.add_trace(go.Surface(
+            x=xb_up,
+            y=yb_up,
+            z=zb_up,
+            colorscale=[[0, color], [1, color]],
+            opacity=top_alpha,
+            showscale=False,
+            hoverinfo='skip',
+            name=f'{item_name} top face',
+            legendgroup=item_name,
+            showlegend=False
+        ))
+
+        # Plot edges if requested
+        if show_edges:
+            # Boundary circles at top and bottom
+            xb_low_edge, yb_low_edge, zb_low_edge = self.boundary_circle(radius, z)
+            xb_up_edge, yb_up_edge, zb_up_edge = self.boundary_circle(radius, z + dz)
+            xb_low_edge += x_center
+            yb_low_edge += y_center
+            xb_up_edge += x_center
+            yb_up_edge += y_center
+
+
+            # Bottom edge
             fig.add_trace(go.Scatter3d(
-                x=xb_low + (x + radius),
-                y=yb_low + (y + radius),
-                z=zb_low,
+                x=xb_low_edge,
+                y=yb_low_edge,
+                z=zb_low_edge,
                 mode='lines',
-                line=dict(color=color, width=2),
-                opacity=opacity,
+                line=dict(color="black", width=1),
+                opacity=1,
                 hoverinfo='skip',
                 name=f'{item_name} bottom edge',
                 legendgroup=item_name,
                 showlegend=False
             ))
 
+            # Top edge
             fig.add_trace(go.Scatter3d(
-                x=xb_up + (x + radius),
-                y=yb_up + (y + radius),
-                z=zb_up,
+                x=xb_up_edge,
+                y=yb_up_edge,
+                z=zb_up_edge,
                 mode='lines',
-                line=dict(color=color, width=2),
-                opacity=top_alpha,
+                line=dict(color="black", width=1),
+                opacity=1,
                 hoverinfo='skip',
                 name=f'{item_name} top edge',
                 legendgroup=item_name,
@@ -878,16 +950,15 @@ class Painter:
         # Add optional text label
         if text:
             fig.add_trace(go.Scatter3d(
-                x=[x + dx / 2],
-                y=[y + dy / 2],
+                x=[x_center],
+                y=[y_center],
                 z=[z + dz / 2],
                 mode='text',
                 text=[text],
-                textfont=dict(size=fontsize, color=color),
+                textfont=dict(size=fontsize, color="Black"),
                 hoverinfo='skip',
                 showlegend=False
             ))
-
     # Supporting functions for cylinder and boundary circle parametrization
     @staticmethod
     def cylinder(r, h, a=0, nt=100, nv=50):
@@ -911,4 +982,17 @@ class Painter:
         x = r * np.cos(theta)
         y = r * np.sin(theta)
         z = h * np.ones(theta.shape)
+        return x, y, z
+    
+    @staticmethod
+    def disk(r, h, nr=50, nt=100):
+        """
+        Generate x, y, z coordinates for a filled disk (circle) at height h.
+        """
+        theta = np.linspace(0, 2*np.pi, nt)
+        radius = np.linspace(0, r, nr)
+        radius_grid, theta_grid = np.meshgrid(radius, theta)
+        x = radius_grid * np.cos(theta_grid)
+        y = radius_grid * np.sin(theta_grid)
+        z = h * np.ones_like(x)
         return x, y, z

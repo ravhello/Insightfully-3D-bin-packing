@@ -102,6 +102,6 @@ for idx, b in enumerate(packer.bins):
     fig = painter.plotBoxAndItems(
         title=b.partno,
         alpha=0.8,
-        write_num=False,
+        write_name=False,
         fontsize=10
     )

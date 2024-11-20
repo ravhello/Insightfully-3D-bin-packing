@@ -82,6 +82,6 @@ painter = Painter(b)
 fig = painter.plotBoxAndItems(
     title=b.partno,
     alpha=0.2,
-    write_num=False,
-    fontsize=5
+    write_name=True,
+    fontsize=10
 )
