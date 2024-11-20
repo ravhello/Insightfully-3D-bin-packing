@@ -600,9 +600,8 @@ class Packer:
         # Bin: sorted by volume
         self.bins.sort(key=lambda bin: bin.getVolume(), reverse=bigger_first)
         # Item: sorted by volume -> load bearing -> level -> binding
-        self.items.sort(key=lambda item: item.getVolume(), reverse=bigger_first)
-        self.items.sort(key=lambda item: item.loadbear, reverse=True)
-        self.items.sort(key=lambda item: item.level, reverse=False)
+        self.items.sort(key=lambda item: (-item.getVolume(), -item.loadbear, item.level))
+        
         # sorted by binding
         if binding != []:
             self.sortBinding(bin)
