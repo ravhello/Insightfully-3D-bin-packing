@@ -580,7 +580,7 @@ class Packer:
 
         r = [area[0][2], area[1][2], area[2][2], area[3][2]]
         if sum(r) == 0:
-            return [0, 0, 0, 0]  # Nessun oggetto nel bin
+            return [0, 0, 0, 0]  # No items in the bin
         result = []
         for i in r :
             result.append(round(i / sum(r) * 100,2))
@@ -676,13 +676,15 @@ class Painter:
             w, h, d = item.getDimension()
             color = item.color
             text = item.partno if write_num else ""
+            # Calculate alpha and top_alpha
+            if alpha_proportional:
+                alpha = item.weight / max_weight if item.weight is not None else alpha
+            if top_face_alpha_color:
+                top_alpha = max(alpha, 1 - (item.loadbear / max_weight))
+            else:
+                top_alpha = alpha
 
             if item.typeof == 'cube':
-                # Calculate alpha and top_alpha
-                if alpha_proportional:
-                    alpha = item.weight / max_weight if item.weight is not None else alpha
-                top_alpha = max(alpha, 1 - (item.loadbear / max_weight)) if top_face_alpha_color else alpha
-
                 # Plot the cube with optional top face adjustment
                 self._plotCube(fig, float(x), float(y), float(z), float(w), float(h), float(d),
                             color=color, opacity=alpha, text=text, fontsize=fontsize,
@@ -752,6 +754,9 @@ class Painter:
 
     def _plotCube(self, fig, x, y, z, dx, dy, dz, color='red', opacity=0.5, text="", fontsize=10, show_edges=True, item_name="", top_alpha=None):
         """ Auxiliary function to plot a cube with optional top face transparency adjustment. """
+        if top_alpha is None:
+            top_alpha = opacity  # Default to opacity if not provided
+            
         # Define the vertices of the cube
         vertices = [
             [x, y, z],
@@ -813,75 +818,98 @@ class Painter:
                 showlegend=False
             ))
 
-    def _plotCylinder(self, fig, x, y, z, dx, dy, dz, color='red', opacity=0.5, text="", fontsize=10, item_name=""):
-        """ Auxiliary function to plot a Cylinder as a 3D surface using Scatter3d. """
-        # Number of points for approximating the cylinder
-        num_points = 50
+    def _plotCylinder(self, fig, x, y, z, dx, dy, dz, color='red', opacity=0.5, text="", fontsize=10, show_edges=True, item_name="", top_alpha=None):
+        """ Auxiliary function to plot a Cylinder as a 3D surface and edges using parametric representation. """
 
-        # Create cylinder coordinates
-        theta = np.linspace(0, 2 * np.pi, num_points)
-        z_vals = np.linspace(z, z + dz, num_points)
+        if top_alpha is None:
+            top_alpha = opacity  # Default to opacity if not provided
 
-        # Create a mesh grid for cylinder surface
-        theta_grid, z_grid = np.meshgrid(theta, z_vals)
-        x_grid = x + (dx / 2) * np.cos(theta_grid)
-        y_grid = y + (dy / 2) * np.sin(theta_grid)
+        # Radius and height for the cylinder
+        radius = min(dx, dy) / 2
+        height = dz
 
-        # Flatten the grid for Scatter3d
-        x_vals = x_grid.flatten()
-        y_vals = y_grid.flatten()
-        z_vals = z_grid.flatten()
+        # Parametrize the cylinder surface
+        x_surface, y_surface, z_surface = self.cylinder(radius, height, a=z)
 
-        # Add cylinder surface as a Scatter3d trace
-        fig.add_trace(
-            go.Scatter3d(
-                x=x_vals,
-                y=y_vals,
-                z=z_vals,
-                mode='markers',
-                marker=dict(
-                    size=2,
-                    color=color,
-                    opacity=opacity,
-                ),
-                hovertext=text,
-                hoverinfo='text',
-                name=item_name,
-                legendgroup=item_name,
-                showlegend=True
-            )
-        )
+        # Add cylinder surface
+        fig.add_trace(go.Surface(
+            x=x_surface + (x + radius),
+            y=y_surface + (y + radius),
+            z=z_surface,
+            colorscale=[[0, color], [1, color]],  # Single-color surface
+            opacity=opacity,
+            showscale=False,
+            name=item_name,
+            hoverinfo='skip',  # Skip hover for the surface
+            legendgroup=item_name,
+            showlegend=True
+        ))
 
-        # Optionally add top and bottom circles
-        top_circle_x = x + (dx / 2) * np.cos(theta)
-        top_circle_y = y + (dy / 2) * np.sin(theta)
-        bottom_circle_x = x + (dx / 2) * np.cos(theta)
-        bottom_circle_y = y + (dy / 2) * np.sin(theta)
+        # Plot boundary circles at top and bottom
+        if show_edges:
+            xb_low, yb_low, zb_low = self.boundary_circle(radius, z)
+            xb_up, yb_up, zb_up = self.boundary_circle(radius, z + dz)
 
-        fig.add_trace(
-            go.Scatter3d(
-                x=top_circle_x,
-                y=top_circle_y,
-                z=[z + dz] * num_points,
+            fig.add_trace(go.Scatter3d(
+                x=xb_low + (x + radius),
+                y=yb_low + (y + radius),
+                z=zb_low,
                 mode='lines',
                 line=dict(color=color, width=2),
-                hoverinfo='skip',
-                name=f'{item_name} top edge',
-                legendgroup=item_name,
-                showlegend=False
-            )
-        )
-
-        fig.add_trace(
-            go.Scatter3d(
-                x=bottom_circle_x,
-                y=bottom_circle_y,
-                z=[z] * num_points,
-                mode='lines',
-                line=dict(color=color, width=2),
+                opacity=opacity,
                 hoverinfo='skip',
                 name=f'{item_name} bottom edge',
                 legendgroup=item_name,
                 showlegend=False
-            )
-        )
+            ))
+
+            fig.add_trace(go.Scatter3d(
+                x=xb_up + (x + radius),
+                y=yb_up + (y + radius),
+                z=zb_up,
+                mode='lines',
+                line=dict(color=color, width=2),
+                opacity=top_alpha,
+                hoverinfo='skip',
+                name=f'{item_name} top edge',
+                legendgroup=item_name,
+                showlegend=False
+            ))
+
+        # Add optional text label
+        if text:
+            fig.add_trace(go.Scatter3d(
+                x=[x + dx / 2],
+                y=[y + dy / 2],
+                z=[z + dz / 2],
+                mode='text',
+                text=[text],
+                textfont=dict(size=fontsize, color=color),
+                hoverinfo='skip',
+                showlegend=False
+            ))
+
+    # Supporting functions for cylinder and boundary circle parametrization
+    @staticmethod
+    def cylinder(r, h, a=0, nt=100, nv=50):
+        """
+        Parametrize the cylinder of radius r, height h, base at z=a.
+        """
+        theta = np.linspace(0, 2 * np.pi, nt)
+        v = np.linspace(a, a + h, nv)
+        theta, v = np.meshgrid(theta, v)
+        x = r * np.cos(theta)
+        y = r * np.sin(theta)
+        z = v
+        return x, y, z
+
+    @staticmethod
+    def boundary_circle(r, h, nt=100):
+        """
+        Parametrize the circle at height h with radius r.
+        """
+        theta = np.linspace(0, 2 * np.pi, nt)
+        x = r * np.cos(theta)
+        y = r * np.sin(theta)
+        z = h * np.ones(theta.shape)
+        return x, y, z
