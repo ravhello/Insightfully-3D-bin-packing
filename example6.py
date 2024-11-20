@@ -87,5 +87,3 @@ fig = painter.plotBoxAndItems(
     write_num=False,
     fontsize=10
 )
-
-fig.show()  # Display the figure using Plotly

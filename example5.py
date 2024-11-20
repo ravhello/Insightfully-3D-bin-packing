@@ -80,6 +80,3 @@ for b in packer.bins:
         write_num=False,
         fontsize=10
     )
-
-
-fig.show()  # Display the figure using Plotly

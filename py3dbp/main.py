@@ -25,17 +25,20 @@ START_POSITION = [0, 0, 0]
 
 
 class Item:
+    existing_names = set()
 
     def __init__(self, partno, name, typeof, WHD, weight, level, loadbear, updown, color, assigned_bin=None):
         ''' '''
+        if typeof not in ['cube', 'cylinder']:
+            raise ValueError(f"Invalid item type: {typeof}. Must be 'cube' or 'cylinder'.")
         self.partno = partno
-        self.name = name
+        self.name = self._generate_unique_name(name)
         self.typeof = typeof
         self.width = WHD[0]
         self.height = WHD[1]
         self.depth = WHD[2]
         self.weight = weight
-        # Packing priority level, choose 1-3
+        # Packing priority level
         self.level = level
         # Load bearing capacity (in terms of kilos): if 0 it means that the item is non stackable
         self.loadbear = loadbear
@@ -47,6 +50,21 @@ class Item:
         self.position = START_POSITION
         self.number_of_decimals = DEFAULT_NUMBER_OF_DECIMALS
         self.assigned_bin = assigned_bin  # New attribute
+
+    def _generate_unique_name(self, base_name):
+        ''' Generate a unique name if the base name already exists '''
+        if base_name not in Item.existing_names:
+            Item.existing_names.add(base_name)
+            return base_name
+        
+        counter = 1
+        new_name = f"{base_name}_{counter}"
+        while new_name in Item.existing_names:
+            counter += 1
+            new_name = f"{base_name}_{counter}"
+        
+        Item.existing_names.add(new_name)
+        return new_name
 
     def formatNumbers(self, number_of_decimals):
         ''' '''
@@ -643,7 +661,7 @@ class Painter:
         self.height = float(bin.height)
         self.depth = float(bin.depth)
 
-    def plotBoxAndItems(self, title="", alpha=0.2, write_num=False, fontsize=10, alpha_proportional=False, top_face_alpha_color=False):
+    def plotBoxAndItems(self, title="", alpha=0.2, write_num=False, fontsize=10, alpha_proportional=False, top_face_alpha_color=False, show_edges=True):
         """ Side effect: Plot the Bin and the items it contains. """
         fig = go.Figure()
 
@@ -668,12 +686,16 @@ class Painter:
                 # Plot the cube with optional top face adjustment
                 self._plotCube(fig, float(x), float(y), float(z), float(w), float(h), float(d),
                             color=color, opacity=alpha, text=text, fontsize=fontsize,
-                            show_edges=True, item_name=item.partno, top_alpha=top_alpha)
+                            show_edges=show_edges, item_name=item.partno, top_alpha=top_alpha)
             elif item.typeof == 'cylinder':
                 # Plot cylinder if applicable
                 self._plotCylinder(fig, float(x), float(y), float(z), float(w), float(h), float(d),
                                     color=color, opacity=alpha, text=text, fontsize=fontsize,
-                                    item_name=item.partno)
+                                    show_edges=show_edges, item_name=item.partno, top_alpha=top_alpha)
+            else:
+                if external_logger:
+                    external_logger.warning(f'Item {item.partno} has an invalid type: {item.typeof}')
+                    external_logger.warning(f'Item {item.partno} will not be plotted')
 
         # Configure plot layout
         fig.update_layout(
@@ -728,7 +750,7 @@ class Painter:
                 showlegend=False
             ))
 
-    def _plotCube(self, fig, x, y, z, dx, dy, dz, color='red', opacity=0.5, text="", fontsize=10, show_edges=False, item_name="", top_alpha=None):
+    def _plotCube(self, fig, x, y, z, dx, dy, dz, color='red', opacity=0.5, text="", fontsize=10, show_edges=True, item_name="", top_alpha=None):
         """ Auxiliary function to plot a cube with optional top face transparency adjustment. """
         # Define the vertices of the cube
         vertices = [
@@ -770,7 +792,7 @@ class Painter:
                     y=[edge[0][1], edge[1][1]],
                     z=[edge[0][2], edge[1][2]],
                     mode='lines',
-                    line=dict(color='black', width=2),
+                    line=dict(color='black', width=1),
                     name=f'{item_name} edge',
                     legendgroup=item_name,
                     showlegend=False

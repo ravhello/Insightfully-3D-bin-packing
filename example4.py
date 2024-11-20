@@ -150,5 +150,3 @@ for box in packer.bins:
         write_num=False,
         fontsize=6
     )
-
-fig.show()  # Display the figure using Plotly

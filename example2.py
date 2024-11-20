@@ -102,5 +102,3 @@ fig = painter.plotBoxAndItems(
     write_num=False,
     fontsize=10
 )
-# Explicitly display the plot if fig is None
-fig.show()  # Display the figure using Plotly
