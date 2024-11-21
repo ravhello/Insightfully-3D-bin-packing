@@ -1,10 +1,14 @@
 from .constants import RotationType, Axis
 from .auxiliary_methods import intersect, set2Decimal
+from decimal import Decimal, getcontext
 import numpy as np
 import copy
 import plotly.graph_objects as go
 import logging
 import sys
+
+# Set global context for decimal precision if needed
+getcontext().prec = 28  # Adjust as needed
 
 # Global variable for the external logger
 external_logger = None
@@ -16,38 +20,34 @@ def set_external_logger(logger):
         external_logger.info('Logger correctly configured in the external module.')
 
 # Example of using the logger in the external module
-#external_logger.info('Logger correctly configured in the external module.')
-
+# external_logger.info('Logger correctly configured in the external module.')
 
 DEFAULT_NUMBER_OF_DECIMALS = 0
-START_POSITION = [0, 0, 0]
-
-
+START_POSITION = [Decimal('0'), Decimal('0'), Decimal('0')]
 
 class Item:
     existing_names = set()
 
     def __init__(self, partno, name, typeof, WHD, weight, level, loadbear, updown, color, assigned_bin=None):
-        ''' '''
         if typeof not in ['cube', 'cylinder']:
             raise ValueError(f"Invalid item type: {typeof}. Must be 'cube' or 'cylinder'.")
         self.partno = partno
         self.name = self._generate_unique_name(name)
         self.typeof = typeof
-        self.width = WHD[0]
-        self.height = WHD[1]
-        self.depth = WHD[2]
-        self.weight = weight
+        self.width = Decimal(str(WHD[0]))
+        self.height = Decimal(str(WHD[1]))
+        self.depth = Decimal(str(WHD[2]))
+        self.weight = Decimal(str(weight))
         # Packing priority level
         self.level = level
-        # Load bearing capacity (in terms of kilos): if 0 it means that the item is non stackable
+        # Load bearing capacity (in terms of kilos): if 0 it means that the item is non-stackable
         self.loadbear = loadbear
         # Upside down? True or False
         self.updown = updown if typeof == 'cube' else False
         # Draw item color
         self.color = color
         self.rotation_type = 0
-        self.position = START_POSITION
+        self.position = START_POSITION.copy()
         self.number_of_decimals = DEFAULT_NUMBER_OF_DECIMALS
         self.assigned_bin = assigned_bin  # New attribute
 
@@ -56,18 +56,17 @@ class Item:
         if base_name not in Item.existing_names:
             Item.existing_names.add(base_name)
             return base_name
-        
+
         counter = 1
         new_name = f"{base_name}_{counter}"
         while new_name in Item.existing_names:
             counter += 1
             new_name = f"{base_name}_{counter}"
-        
+
         Item.existing_names.add(new_name)
         return new_name
 
     def formatNumbers(self, number_of_decimals):
-        ''' '''
         self.width = set2Decimal(self.width, number_of_decimals)
         self.height = set2Decimal(self.height, number_of_decimals)
         self.depth = set2Decimal(self.depth, number_of_decimals)
@@ -75,20 +74,16 @@ class Item:
         self.number_of_decimals = number_of_decimals
 
     def string(self):
-        ''' '''
         return "%s(%sx%sx%s, weight: %s) pos(%s) rt(%s) vol(%s)" % (
             self.partno, self.width, self.height, self.depth, self.weight,
             self.position, self.rotation_type, self.getVolume()
         )
 
     def getVolume(self):
-        ''' '''
         return set2Decimal(self.width * self.height * self.depth, self.number_of_decimals)
 
     def getMaxArea(self):
-        ''' '''
-        a = sorted([self.width, self.height, self.depth], reverse=True) if self.updown == True else [self.width, self.height, self.depth]
-
+        a = sorted([self.width, self.height, self.depth], reverse=True) if self.updown else [self.width, self.height, self.depth]
         return set2Decimal(a[0] * a[1], self.number_of_decimals)
 
     def getDimension(self):
@@ -113,26 +108,24 @@ class Item:
 class Bin:
 
     def __init__(self, partno, WHD, max_weight, corner=0, put_type=1):
-        ''' '''
         self.partno = partno
-        self.width = WHD[0]
-        self.height = WHD[1]
-        self.depth = WHD[2]
-        self.max_weight = max_weight
-        self.corner = corner
+        self.width = Decimal(str(WHD[0]))
+        self.height = Decimal(str(WHD[1]))
+        self.depth = Decimal(str(WHD[2]))
+        self.max_weight = Decimal(str(max_weight))
+        self.corner = Decimal(str(corner))
         self.items = []
-        self.fit_items = np.array([[0, WHD[0], 0, WHD[1], 0, 0]])
+        self.fit_items = np.array([[Decimal('0'), self.width, Decimal('0'), self.height, Decimal('0'), Decimal('0')]], dtype=object)
         self.unfitted_items = []
         self.number_of_decimals = DEFAULT_NUMBER_OF_DECIMALS
         self.fix_point = True
         self.check_stable = False
-        self.support_surface_ratio = 0
+        self.support_surface_ratio = Decimal('0')
         self.put_type = put_type
         # used to put gravity distribution
         self.gravity = []
 
     def formatNumbers(self, number_of_decimals):
-        ''' '''
         self.width = set2Decimal(self.width, number_of_decimals)
         self.height = set2Decimal(self.height, number_of_decimals)
         self.depth = set2Decimal(self.depth, number_of_decimals)
@@ -140,21 +133,18 @@ class Bin:
         self.number_of_decimals = number_of_decimals
 
     def string(self):
-        ''' '''
         return "%s(%sx%sx%s, max_weight:%s) vol(%s)" % (
             self.partno, self.width, self.height, self.depth, self.max_weight,
             self.getVolume()
         )
 
     def getVolume(self):
-        ''' '''
         return set2Decimal(
             self.width * self.height * self.depth, self.number_of_decimals
         )
 
     def getTotalWeight(self):
-        ''' '''
-        total_weight = 0
+        total_weight = Decimal('0')
 
         for item in self.items:
             total_weight += item.weight
@@ -164,13 +154,13 @@ class Bin:
     def putItem(self, item, pivot, axis=None):
         ''' Put item in bin '''
         fit = False
-        valid_item_position = item.position
-        item.position = pivot
-        rotate = RotationType.ALL if item.updown == True else RotationType.Notupdown
+        valid_item_position = item.position.copy()
+        item.position = pivot.copy()
+        rotate = RotationType.ALL if item.updown else RotationType.Notupdown
         for i in range(0, len(rotate)):
             item.rotation_type = i
             dimension = item.getDimension()
-            # Rotate
+            # Check if item exceeds bin boundaries after rotation
             if (
                 self.width < pivot[0] + dimension[0] or
                 self.height < pivot[1] + dimension[1] or
@@ -180,63 +170,108 @@ class Bin:
 
             fit = True
 
+            # Check for intersection with items already in the bin
             for current_item_in_bin in self.items:
                 if intersect(current_item_in_bin, item):
                     fit = False
                     break
 
             if fit:
-                # Calculate total weight
+                # Check if total weight exceeds bin's maximum weight
                 if self.getTotalWeight() + item.weight > self.max_weight:
                     fit = False
                     return fit
 
-                # Fix point float problem
-                if self.fix_point == True:
+                # Fix positioning issues
+                if self.fix_point:
                     [w, h, d] = dimension
-                    [x, y, z] = [float(pivot[0]), float(pivot[1]), float(pivot[2])]
+                    [x, y, z] = pivot.copy()
 
-                    for i in range(3):
-                        # Fix height
-                        y = self.checkHeight([x, x + float(w), y, y + float(h), z, z + float(d)])
-                        # Fix width
-                        x = self.checkWidth([x, x + float(w), y, y + float(h), z, z + float(d)])
-                        # Fix depth
-                        z = self.checkDepth([x, x + float(w), y, y + float(h), z, z + float(d)])
+                    for _ in range(3):
+                        # fix height
+                        y = self.checkHeight([x, x + w, y, y + h, z, z + d])
+                        # fix width
+                        x = self.checkWidth([x, x + w, y, y + h, z, z + d])
+                        # fix depth
+                        z = self.checkDepth([x, x + w, y, y + h, z, z + d])
 
-                    # Check stability on item
+                    # Check stability of the item
                     # Rule:
                     # 1. Define a support ratio, if the ratio below the support surface does not exceed this ratio, compare the second rule.
                     # 2. If there is no support under any vertices of the bottom of the item, then fit = False.
-                    if self.check_stable == True:
-                        # Calculate the surface area of item
-                        item_area_lower = int(dimension[0] * dimension[1])
+                    if self.check_stable:
+                        # Calculate the surface area of item's bottom
+                        item_area_lower = dimension[0] * dimension[1]
                         # Calculate the surface area of the underlying support
-                        support_area_upper = 0
+                        support_area_upper = Decimal('0')
                         for i in self.fit_items:
                             # Verify that the lower support surface area is greater than the upper support surface area * support_surface_ratio.
                             if z == i[5]:
-                                area = len(set([j for j in range(int(x), int(x + int(w)))]) & set([j for j in range(int(i[0]), int(i[1]))])) * \
-                                    len(set([j for j in range(int(y), int(y + int(h)))]) & set([j for j in range(int(i[2]), int(i[3]))]))
+                                x_overlap = max(Decimal('0'), min(x + w, i[1]) - max(x, i[0]))
+                                y_overlap = max(Decimal('0'), min(y + h, i[3]) - max(y, i[2]))
+                                area = x_overlap * y_overlap
                                 support_area_upper += area
 
                         # If not, get four vertices of the bottom of the item
                         if support_area_upper / item_area_lower < self.support_surface_ratio:
-                            four_vertices = [[x, y], [x + float(w), y], [x, y + float(h)], [x + float(w), y + float(h)]]
+                            four_vertices = [
+                                (x, y),
+                                (x + w, y),
+                                (x, y + h),
+                                (x + w, y + h)
+                            ]
                             # If any vertices are not supported, fit = False
                             c = [False, False, False, False]
                             for i in self.fit_items:
                                 if z == i[5]:
-                                    for jdx, j in enumerate(four_vertices):
-                                        if (i[0] <= j[0] <= i[1]) and (i[2] <= j[1] <= i[3]):
-                                            c[jdx] = True
+                                    for idx, vertex in enumerate(four_vertices):
+                                        if (i[0] <= vertex[0] <= i[1]) and (i[2] <= vertex[1] <= i[3]):
+                                            c[idx] = True
                             if False in c:
                                 item.position = valid_item_position
                                 fit = False
                                 return fit
 
-                    self.fit_items = np.append(self.fit_items, np.array([[x, x + float(w), y, y + float(h), z, z + float(d)]]), axis=0)
-                    item.position = [set2Decimal(x), set2Decimal(y), set2Decimal(z)]
+                    # Load-bearing capacity check
+                    bottom_y = y  # Bottom y-coordinate of the item being placed
+                    can_support = True
+                    tolerance = Decimal('1e-6')  # Tolerance for decimal comparison
+
+                    for supporting_item in self.items:
+                        supporting_item_top_y = supporting_item.position[1] + supporting_item.getDimension()[1]
+
+                        if abs(supporting_item_top_y - bottom_y) < tolerance:
+                            # Check overlap in x and z axes
+                            item_x_range = (x, x + w)
+                            item_z_range = (z, z + d)
+
+                            supporting_x = supporting_item.position[0]
+                            supporting_z = supporting_item.position[2]
+                            supporting_w, _, supporting_d = supporting_item.getDimension()
+                            supporting_x_range = (supporting_x, supporting_x + supporting_w)
+                            supporting_z_range = (supporting_z, supporting_z + supporting_d)
+
+                            x_overlap = max(Decimal('0'), min(item_x_range[1], supporting_x_range[1]) - max(item_x_range[0], supporting_x_range[0]))
+                            z_overlap = max(Decimal('0'), min(item_z_range[1], supporting_z_range[1]) - max(item_z_range[0], supporting_z_range[0]))
+
+                            if x_overlap > 0 and z_overlap > 0:
+                                # Check cumulative load-bearing capacity
+                                cumulative_weight = self.get_cumulative_weight_above(supporting_item, item)
+                                if supporting_item.loadbear == 0 or supporting_item.loadbear < cumulative_weight:
+                                    can_support = False
+                                    break
+
+                    if not can_support:
+                        fit = False
+                        item.position = valid_item_position
+                        if external_logger:
+                            external_logger.info(f"Item {item.partno} cannot be placed on top of items that cannot bear its cumulative load")
+                        continue  # Try next rotation or pivot
+
+                    # Record the item's position in the bin
+                    new_fit_item = np.array([[x, x + w, y, y + h, z, z + d]], dtype=object)
+                    self.fit_items = np.append(self.fit_items, new_fit_item, axis=0)
+                    item.position = [set2Decimal(coord, self.number_of_decimals) for coord in [x, y, z]]
 
                 if fit:
                     self.items.append(copy.deepcopy(item))
@@ -246,86 +281,121 @@ class Bin:
 
             return fit
 
-        else:
-            item.position = valid_item_position
+    def is_directly_supported_by(self, item_above, item_below):
+        ''' Check if item_above is directly supported by item_below '''
+        tolerance = Decimal('1e-6')
+        item_below_top_y = item_below.position[1] + item_below.getDimension()[1]
+        item_above_bottom_y = item_above.position[1]
 
-        return fit
+        if abs(item_below_top_y - item_above_bottom_y) < tolerance:
+            # Check overlap in x and z axes
+            item_above_x_range = (item_above.position[0], item_above.position[0] + item_above.getDimension()[0])
+            item_above_z_range = (item_above.position[2], item_above.position[2] + item_above.getDimension()[2])
 
+            item_below_x_range = (item_below.position[0], item_below.position[0] + item_below.getDimension()[0])
+            item_below_z_range = (item_below.position[2], item_below.position[2] + item_below.getDimension()[2])
+
+            x_overlap = max(Decimal('0'), min(item_above_x_range[1], item_below_x_range[1]) - max(item_above_x_range[0], item_below_x_range[0]))
+            z_overlap = max(Decimal('0'), min(item_above_z_range[1], item_below_z_range[1]) - max(item_above_z_range[0], item_below_z_range[0]))
+
+            if x_overlap > 0 and z_overlap > 0:
+                return True
+        return False
+
+    def get_cumulative_weight_above(self, supporting_item, current_item):
+        ''' Calculate the cumulative weight of all items above supporting_item, including current_item '''
+        cumulative_weight = Decimal('0')
+        items_to_check = [supporting_item]
+        visited = set()
+        while items_to_check:
+            item = items_to_check.pop()
+            if item in visited:
+                continue
+            visited.add(item)
+            for item_above in self.items + [current_item]:
+                if item_above == supporting_item or item_above in visited:
+                    continue
+                if self.is_directly_supported_by(item_above, item):
+                    cumulative_weight += item_above.weight
+                    items_to_check.append(item_above)
+        return cumulative_weight
 
     def checkDepth(self, unfix_point):
         ''' Fix item position z '''
-        z_ = [[0, 0], [float(self.depth), float(self.depth)]]
+        z_intervals = [[Decimal('0'), Decimal('0')], [self.depth, self.depth]]
         for j in self.fit_items:
-            # Create x set
-            x_bottom = set([i for i in range(int(j[0]), int(j[1]))])
-            x_top = set([i for i in range(int(unfix_point[0]), int(unfix_point[1]))])
-            # Create y set
-            y_bottom = set([i for i in range(int(j[2]), int(j[3]))])
-            y_top = set([i for i in range(int(unfix_point[2]), int(unfix_point[3]))])
-            # Find intersection on x set and y set
-            if len(x_bottom & x_top) != 0 and len(y_bottom & y_top) != 0:
-                z_.append([float(j[4]), float(j[5])])
+            # x intervals
+            x_bottom = (j[0], j[1])
+            x_top = (unfix_point[0], unfix_point[1])
+            # y intervals
+            y_bottom = (j[2], j[3])
+            y_top = (unfix_point[2], unfix_point[3])
+            # Check for overlap
+            x_overlap = max(Decimal('0'), min(x_bottom[1], x_top[1]) - max(x_bottom[0], x_top[0]))
+            y_overlap = max(Decimal('0'), min(y_bottom[1], y_top[1]) - max(y_bottom[0], y_top[0]))
+            if x_overlap > 0 and y_overlap > 0:
+                z_intervals.append([j[4], j[5]])
         top_depth = unfix_point[5] - unfix_point[4]
-        # Find diff set on z_
-        z_ = sorted(z_, key=lambda z_: z_[1])
-        for j in range(len(z_) - 1):
-            if z_[j + 1][0] - z_[j][1] >= top_depth:
-                return z_[j][1]
+        z_intervals = sorted(z_intervals, key=lambda z_: z_[1])
+        for j in range(len(z_intervals) - 1):
+            if z_intervals[j + 1][0] - z_intervals[j][1] >= top_depth:
+                return z_intervals[j][1]
         return unfix_point[4]
 
     def checkWidth(self, unfix_point):
         ''' Fix item position x '''
-        x_ = [[0, 0], [float(self.width), float(self.width)]]
+        x_intervals = [[Decimal('0'), Decimal('0')], [self.width, self.width]]
         for j in self.fit_items:
-            # Create z set
-            z_bottom = set([i for i in range(int(j[4]), int(j[5]))])
-            z_top = set([i for i in range(int(unfix_point[4]), int(unfix_point[5]))])
-            # Create y set
-            y_bottom = set([i for i in range(int(j[2]), int(j[3]))])
-            y_top = set([i for i in range(int(unfix_point[2]), int(unfix_point[3]))])
-            # Find intersection on z set and y set
-            if len(z_bottom & z_top) != 0 and len(y_bottom & y_top) != 0:
-                x_.append([float(j[0]), float(j[1])])
+            # z intervals
+            z_bottom = (j[4], j[5])
+            z_top = (unfix_point[4], unfix_point[5])
+            # y intervals
+            y_bottom = (j[2], j[3])
+            y_top = (unfix_point[2], unfix_point[3])
+            # Check for overlap
+            z_overlap = max(Decimal('0'), min(z_bottom[1], z_top[1]) - max(z_bottom[0], z_top[0]))
+            y_overlap = max(Decimal('0'), min(y_bottom[1], y_top[1]) - max(y_bottom[0], y_top[0]))
+            if z_overlap > 0 and y_overlap > 0:
+                x_intervals.append([j[0], j[1]])
         top_width = unfix_point[1] - unfix_point[0]
-        # Find diff set on x_
-        x_ = sorted(x_, key=lambda x_: x_[1])
-        for j in range(len(x_) - 1):
-            if x_[j + 1][0] - x_[j][1] >= top_width:
-                return x_[j][1]
+        x_intervals = sorted(x_intervals, key=lambda x_: x_[1])
+        for j in range(len(x_intervals) - 1):
+            if x_intervals[j + 1][0] - x_intervals[j][1] >= top_width:
+                return x_intervals[j][1]
         return unfix_point[0]
 
     def checkHeight(self, unfix_point):
         ''' Fix item position y '''
-        y_ = [[0, 0], [float(self.height), float(self.height)]]
+        y_intervals = [[Decimal('0'), Decimal('0')], [self.height, self.height]]
         for j in self.fit_items:
-            # Create x set
-            x_bottom = set([i for i in range(int(j[0]), int(j[1]))])
-            x_top = set([i for i in range(int(unfix_point[0]), int(unfix_point[1]))])
-            # Create z set
-            z_bottom = set([i for i in range(int(j[4]), int(j[5]))])
-            z_top = set([i for i in range(int(unfix_point[4]), int(unfix_point[5]))])
-            # Find intersection on x set and z set
-            if len(x_bottom & x_top) != 0 and len(z_bottom & z_top) != 0:
-                y_.append([float(j[2]), float(j[3])])
+            # x intervals
+            x_bottom = (j[0], j[1])
+            x_top = (unfix_point[0], unfix_point[1])
+            # z intervals
+            z_bottom = (j[4], j[5])
+            z_top = (unfix_point[4], unfix_point[5])
+            # Check for overlap
+            x_overlap = max(Decimal('0'), min(x_bottom[1], x_top[1]) - max(x_bottom[0], x_top[0]))
+            z_overlap = max(Decimal('0'), min(z_bottom[1], z_top[1]) - max(z_bottom[0], z_top[0]))
+            if x_overlap > 0 and z_overlap > 0:
+                y_intervals.append([j[2], j[3]])
         top_height = unfix_point[3] - unfix_point[2]
-        # Find diff set on y_
-        y_ = sorted(y_, key=lambda y_: y_[1])
-        for j in range(len(y_) - 1):
-            if y_[j + 1][0] - y_[j][1] >= top_height:
-                return y_[j][1]
+        y_intervals = sorted(y_intervals, key=lambda y_: y_[1])
+        for j in range(len(y_intervals) - 1):
+            if y_intervals[j + 1][0] - y_intervals[j][1] >= top_height:
+                return y_intervals[j][1]
         return unfix_point[2]
 
     def addCorner(self):
         ''' Add container corner '''
         if self.corner != 0:
-            corner = set2Decimal(self.corner)
             corner_list = []
             for i in range(8):
                 a = Item(
                     partno='corner{}'.format(i),
                     name='corner',
                     typeof='cube',
-                    WHD=(corner, corner, corner),
+                    WHD=(self.corner, self.corner, self.corner),
                     weight=0,
                     level=0,
                     loadbear=0,
@@ -340,25 +410,34 @@ class Bin:
         x = set2Decimal(self.width - self.corner)
         y = set2Decimal(self.height - self.corner)
         z = set2Decimal(self.depth - self.corner)
-        pos = [[0, 0, 0], [0, 0, z], [0, y, z], [0, y, 0], [x, y, 0], [x, 0, 0], [x, 0, z], [x, y, z]]
+        pos = [
+            [Decimal('0'), Decimal('0'), Decimal('0')],
+            [Decimal('0'), Decimal('0'), z],
+            [Decimal('0'), y, z],
+            [Decimal('0'), y, Decimal('0')],
+            [x, y, Decimal('0')],
+            [x, Decimal('0'), Decimal('0')],
+            [x, Decimal('0'), z],
+            [x, y, z]
+        ]
         item.position = pos[info]
         self.items.append(item)
 
-        corner = [float(item.position[0]), float(item.position[0]) + float(self.corner),
-                  float(item.position[1]), float(item.position[1]) + float(self.corner),
-                  float(item.position[2]), float(item.position[2]) + float(self.corner)]
+        corner = [item.position[0], item.position[0] + self.corner,
+                  item.position[1], item.position[1] + self.corner,
+                  item.position[2], item.position[2] + self.corner]
 
-        self.fit_items = np.append(self.fit_items, np.array([corner]), axis=0)
+        corner = np.array([corner], dtype=object)
+        self.fit_items = np.append(self.fit_items, corner, axis=0)
 
     def clearBin(self):
         ''' Clear items in bin '''
         self.items = []
-        self.fit_items = np.array([[0, self.width, 0, self.height, 0, 0]])
+        self.fit_items = np.array([[Decimal('0'), self.width, Decimal('0'), self.height, Decimal('0'), Decimal('0')]], dtype=object)
 
 class Packer:
 
     def __init__(self, name=None):
-        ''' '''
         self.bins = []
         self.items = []
         self.unfit_items = []
@@ -373,27 +452,24 @@ class Packer:
         existing_names = {bin.partno for bin in self.bins}
         if base_name not in existing_names:
             return base_name
-        
+
         counter = 1
         new_name = f"{base_name}_{counter}"
         while new_name in existing_names:
             counter += 1
             new_name = f"{base_name}_{counter}"
-        
+
         if external_logger:
             external_logger.warning(f'Name conflict for {base_name}. Assigned new name: {new_name}')
-        
+
         return new_name
 
-
     def addBin(self, bin):
-        ''' '''
         if external_logger:
             external_logger.info(f'Bin added: {bin.partno} to packer {self.name}')
         self.bins.append(bin)
 
     def addItem(self, item):
-        ''' '''
         self.total_items = len(self.items) + 1
         if external_logger:
             external_logger.info(f'Item added: {item.partno} to packer: {self.name}')
@@ -404,13 +480,11 @@ class Packer:
         fitted = False
         bin.fix_point = fix_point
         bin.check_stable = check_stable
-        bin.support_surface_ratio = support_surface_ratio
+        bin.support_surface_ratio = Decimal(str(support_surface_ratio))
         if external_logger:
             external_logger.info(f"Attempting to pack item {item.partno} into bin {bin.partno}")
 
         if item.assigned_bin and item.assigned_bin.partno != bin.partno:
-            #if external_logger:
-            #external_logger.info(f'Item: {item.partno} assigned bin ({item.assigned_bin.partno}) does not match bin {bin.partno} in pack2Bin')
             return  # Skip packing if item is assigned to a different bin
 
         # First put item at (0, 0, 0), if corner exists, first add corner in box
@@ -431,7 +505,7 @@ class Packer:
         for axis in range(0, 3):
             items_in_bin = bin.items
             for ib in items_in_bin:
-                pivot = [0, 0, 0]
+                pivot = [Decimal('0'), Decimal('0'), Decimal('0')]
                 w, h, d = ib.getDimension()
                 if axis == Axis.WIDTH:
                     pivot = [ib.position[0] + w, ib.position[1], ib.position[2]]
@@ -450,12 +524,11 @@ class Packer:
             if external_logger:
                 external_logger.info(f"Item {item.partno} does not fit in bin {bin.partno}")
 
-
-    def sortBinding(self,bin): # It seems that sorting is done in absolute terms and not relative to the bin
+    def sortBinding(self, bin):
         ''' sorted by binding '''
-        b,front,back = [],[],[]
+        b, front, back = [], [], []
         for i in range(len(self.binding)):
-            b.append([]) 
+            b.append([])
             for item in self.items:
                 if item.name in self.binding[i]:
                     b[i].append(item)
@@ -466,12 +539,12 @@ class Packer:
                         back.append(item)
 
         min_c = min([len(i) for i in b])
-        
-        sort_bind =[]
+
+        sort_bind = []
         for i in range(min_c):
             for j in range(len(b)):
                 sort_bind.append(b[j][i])
-        
+
         for i in b:
             for j in i:
                 if j not in sort_bind:
@@ -479,10 +552,8 @@ class Packer:
                     if external_logger:
                         external_logger.info(f"Item {j.name} does not fit in sorting binding")
 
-
         self.items = front + sort_bind + back
         return
-
 
     def putOrder(self):
         ''' Arrange the order of items '''
@@ -497,97 +568,53 @@ class Packer:
                 i.items.sort(key=lambda item: item.position[1], reverse=False)
                 i.items.sort(key=lambda item: item.position[2], reverse=False)
                 i.items.sort(key=lambda item: item.position[0], reverse=False)
-            else :
+            else:
                 pass
         return
 
+    def gravityCenter(self, bin):
+        '''Deviation Of Cargo gravity distribution'''
+        w = bin.width
+        h = bin.height
 
-    def gravityCenter(self,bin):
-        ''' 
-        Deviation Of Cargo gravity distribution
-        ''' 
-        w = int(bin.width)
-        h = int(bin.height)
-        d = int(bin.depth)
+        # Define areas using decimal.Decimal
+        half_w = w / 2
+        half_h = h / 2
 
-        area1 = [set(range(0,w//2+1)),set(range(0,h//2+1)),0]
-        area2 = [set(range(w//2+1,w+1)),set(range(0,h//2+1)),0]
-        area3 = [set(range(0,w//2+1)),set(range(h//2+1,h+1)),0]
-        area4 = [set(range(w//2+1,w+1)),set(range(h//2+1,h+1)),0]
-        area = [area1,area2,area3,area4]
+        areas = [
+            {'x_range': (Decimal('0'), half_w), 'y_range': (Decimal('0'), half_h), 'weight': Decimal('0')},
+            {'x_range': (half_w, w), 'y_range': (Decimal('0'), half_h), 'weight': Decimal('0')},
+            {'x_range': (Decimal('0'), half_w), 'y_range': (half_h, h), 'weight': Decimal('0')},
+            {'x_range': (half_w, w), 'y_range': (half_h, h), 'weight': Decimal('0')}
+        ]
 
-        for i in bin.items:
+        for item in bin.items:
+            x_start = item.position[0]
+            y_start = item.position[1]
+            dimension = item.getDimension()
+            x_end = x_start + dimension[0]
+            y_end = y_start + dimension[1]
 
-            x_st = int(i.position[0])
-            y_st = int(i.position[1])
-            if i.rotation_type == 0:
-                x_ed = int(i.position[0] + i.width)
-                y_ed = int(i.position[1] + i.height)
-            elif i.rotation_type == 1:
-                x_ed = int(i.position[0] + i.height)
-                y_ed = int(i.position[1] + i.width)
-            elif i.rotation_type == 2:
-                x_ed = int(i.position[0] + i.height)
-                y_ed = int(i.position[1] + i.depth)
-            elif i.rotation_type == 3:
-                x_ed = int(i.position[0] + i.depth)
-                y_ed = int(i.position[1] + i.height)
-            elif i.rotation_type == 4:
-                x_ed = int(i.position[0] + i.depth)
-                y_ed = int(i.position[1] + i.width)
-            elif i.rotation_type == 5:
-                x_ed = int(i.position[0] + i.width)
-                y_ed = int(i.position[1] + i.depth)
+            item_area = (x_end - x_start) * (y_end - y_start)
+            item_weight = item.weight
 
-            x_set = set(range(x_st,int(x_ed)+1))
-            y_set = set(range(y_st,y_ed+1))
+            for area in areas:
+                x_overlap = max(Decimal('0'), min(area['x_range'][1], x_end) - max(area['x_range'][0], x_start))
+                y_overlap = max(Decimal('0'), min(area['y_range'][1], y_end) - max(area['y_range'][0], y_start))
+                overlap_area = x_overlap * y_overlap
 
-            # cal gravity distribution
-            for j in range(len(area)):
-                if x_set.issubset(area[j][0]) and y_set.issubset(area[j][1]) : 
-                    area[j][2] += int(i.weight)
-                    break
-                # include x and !include y
-                elif x_set.issubset(area[j][0]) == True and y_set.issubset(area[j][1]) == False and len(y_set & area[j][1]) != 0 : 
-                    y = len(y_set & area[j][1]) / (y_ed - y_st) * int(i.weight)
-                    area[j][2] += y
-                    if j >= 2 :
-                        area[j-2][2] += (int(i.weight) - x)
-                    else :
-                        area[j+2][2] += (int(i.weight) - y)
-                    break
-                # include y and !include x
-                elif x_set.issubset(area[j][0]) == False and y_set.issubset(area[j][1]) == True and len(x_set & area[j][0]) != 0 : 
-                    x = len(x_set & area[j][0]) / (x_ed - x_st) * int(i.weight)
-                    area[j][2] += x
-                    if j >= 2 :
-                        area[j-2][2] += (int(i.weight) - x)
-                    else :
-                        area[j+2][2] += (int(i.weight) - x)
-                    break
-                # !include x and !include y
-                elif x_set.issubset(area[j][0])== False and y_set.issubset(area[j][1]) == False and len(y_set & area[j][1]) != 0  and len(x_set & area[j][0]) != 0 :
-                    all = (y_ed - y_st) * (x_ed - x_st)
-                    y = len(y_set & area[0][1])
-                    y_2 = y_ed - y_st - y
-                    x = len(x_set & area[0][0])
-                    x_2 = x_ed - x_st - x
-                    area[0][2] += x * y / all * int(i.weight)
-                    area[1][2] += x_2 * y / all * int(i.weight)
-                    area[2][2] += x * y_2 / all * int(i.weight)
-                    area[3][2] += x_2 * y_2 / all * int(i.weight)
-                    break
+                if overlap_area > 0:
+                    weight_contribution = (overlap_area / item_area) * item_weight
+                    area['weight'] += weight_contribution
 
-        r = [area[0][2], area[1][2], area[2][2], area[3][2]]
-        if sum(r) == 0:
+        total_weight = sum(area['weight'] for area in areas)
+        if total_weight == 0:
             return [0, 0, 0, 0]  # No items in the bin
-        result = []
-        for i in r :
-            result.append(round(i / sum(r) * 100,2))
+
+        result = [float((area['weight'] / total_weight) * 100) for area in areas]
         return result
 
-
-    def pack(self, bigger_first=False,distribute_items=True,fix_point=True,check_stable=True,support_surface_ratio=0.75,binding=[],number_of_decimals=DEFAULT_NUMBER_OF_DECIMALS):
+    def pack(self, bigger_first=False, distribute_items=True, fix_point=True, check_stable=True, support_surface_ratio=0.75, binding=[], number_of_decimals=DEFAULT_NUMBER_OF_DECIMALS):
         '''pack master func '''
         # set decimals
         for bin in self.bins:
@@ -605,7 +632,7 @@ class Packer:
             -item.loadbear,                                         # Loadbear descending
             -item.getVolume() if bigger_first else item.getVolume() # Volume (reversed if bigger_first=True)
         ))
-        
+
         # sorted by binding
         if binding != []:
             self.sortBinding(bin)
@@ -627,12 +654,12 @@ class Packer:
                 # clear bin
                 bin.items = []
                 bin.unfitted_items = self.unfit_items
-                bin.fit_items = np.array([[0,bin.width,0,bin.height,0,0]])
+                bin.fit_items = np.array([[Decimal('0'), bin.width, Decimal('0'), bin.height, Decimal('0'), Decimal('0')]], dtype=object)
                 # repacking
                 for item in self.items:
-                    self.pack2Bin(bin, item,fix_point,check_stable,support_surface_ratio)
-            
-            # Deviation Of Cargo Gravity Center 
+                    self.pack2Bin(bin, item, fix_point, check_stable, support_surface_ratio)
+
+            # Deviation Of Cargo Gravity Center
             self.bins[idx].gravity = self.gravityCenter(bin)
 
             if distribute_items:
@@ -649,16 +676,10 @@ class Packer:
         if self.items != []:
             self.unfit_items = copy.deepcopy(self.items)
             self.items = []
-        # for item in self.items.copy():
-        #     if item in bin.unfitted_items:
-        #         self.items.remove(item)
-
-
 
 class Painter:
 
     def __init__(self, bin):
-        ''' '''
         self.items = bin.items
         self.width = float(bin.width)
         self.height = float(bin.height)
@@ -669,10 +690,10 @@ class Painter:
         fig = go.Figure()
 
         # Plot bin as wireframe
-        self._plotBinWireframe(fig, 0, 0, 0, float(self.width), float(self.height), float(self.depth), color='black')
+        self._plotBinWireframe(fig, 0, 0, 0, self.width, self.height, self.depth, color='black')
 
         # Find max weight for proportional alpha
-        max_weight = max([item.weight for item in self.items]) if len(self.items) > 0 else 1
+        max_weight = max([item.weight for item in self.items]) if len(self.items) > 0 else Decimal('1')
 
         for item in self.items:
             x, y, z = item.position
@@ -681,9 +702,9 @@ class Painter:
             text = item.partno if write_name and 'corner' not in item.name else ""
             # Calculate alpha and top_alpha
             if alpha_proportional:
-                alpha = item.weight / max_weight if item.weight is not None else alpha
+                alpha = float(item.weight / max_weight) if item.weight is not None else alpha
             if top_face_proportional:
-                top_alpha = 1 - (item.loadbear / max_weight)
+                top_alpha = 1 - float(item.loadbear / max_weight)
                 top_alpha = max(0, min(top_alpha, 1))  # Ensure alpha is between 0 and 1
             else:
                 top_alpha = alpha
@@ -720,8 +741,6 @@ class Painter:
 
         return fig  # Return the generated figure
 
-
-
     def _plotBinWireframe(self, fig, x, y, z, dx, dy, dz, color='black'):
         """ Auxiliary function to plot a wireframe cube for the bin. """
         # Define the vertices of the cube
@@ -735,14 +754,14 @@ class Painter:
             [x+dx, y+dy, z+dz],
             [x, y+dy, z+dz]
         ]
-        
+
         # Define the 12 lines (edges) of the cube
         edges = [
             [vertices[0], vertices[1], 'Lower north edge'], [vertices[1], vertices[2], 'Lower east edge'], [vertices[2], vertices[3], 'Lower south edge'], [vertices[3], vertices[0], 'Lower west edge'],
             [vertices[4], vertices[5], 'Upper north edge'], [vertices[5], vertices[6], 'Upper east edge'], [vertices[6], vertices[7], 'Upper south edge'], [vertices[7], vertices[4], 'Upper west edge'],
             [vertices[0], vertices[4], 'North vertical edge'], [vertices[1], vertices[5], 'East vertical edge'], [vertices[2], vertices[6], 'South vertical edge'], [vertices[3], vertices[7], 'West vertical edge']
         ]
-        
+
         # Add the edges to the plot
         for edge in edges:
             fig.add_trace(go.Scatter3d(
