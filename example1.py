@@ -11,22 +11,22 @@ This example is used to demonstrate the mixed packing of cube and cylinder.
 # init packing function
 packer = Packer(name = 'Example Packer')
 #  init bin
-box = Bin('example1', (5.6875, 10.75, 15.0), 70.0,0,0)
+box = Bin('example1', (5.6875, 8, 10.0), 700.0,0,0)
 packer.addBin(box)
 #  add item
-packer.addItem(Item('50g [powder 1]', 'test','cube',(2, 2, 4), 1,1,100,True,'red'))
-packer.addItem(Item('50g [powder 2]', 'test','cube',(2, 2, 4), 2,1,100,True,'blue'))
-packer.addItem(Item('50g [powder 3]', 'test','cube',(2, 2, 4), 3,1,100,True,'gray'))
-packer.addItem(Item('50g [powder 4]', 'test','cube',(2, 2, 4), 3,1,100,True,'orange'))
-packer.addItem(Item('50g [powder 5]', 'test','cylinder',(2, 2, 4), 3,1,100,True,'lawngreen'))
-packer.addItem(Item('50g [powder 6]', 'test','cylinder',(2, 2, 4), 3,1,100,True,'purple'))
-packer.addItem(Item('50g [powder 7]', 'test','cylinder',(1, 1, 5), 3,1,100,True,'yellow'))
-packer.addItem(Item('250g [powder 8]', 'test','cylinder',(4, 4, 2), 4,1,100,True,'pink'))
-packer.addItem(Item('250g [powder 9]', 'test','cylinder',(4, 4, 2), 5,1,100,True,'brown'))
-packer.addItem(Item('250g [powder 10]', 'test','cube',(4, 4, 2), 6,1,100,True,'cyan'))
-packer.addItem(Item('250g [powder 11]', 'test','cylinder',(4, 4, 2), 7,1,100,True,'olive'))
-packer.addItem(Item('250g [powder 12]', 'test','cylinder',(4, 4, 2), 8,1,100,True,'darkgreen'))
-packer.addItem(Item('250g [powder 13]', 'test','cube',(4, 4, 2), 9,1,100,True,'orange'))
+packer.addItem(Item('10kg/7.5kg/Prio1', 'test','cube',(2, 2, 4), 10,1,7.5,True,'red'))
+packer.addItem(Item('8kg/7.5kg/Prio1', 'test','cube',(2, 2, 4), 8,1,7.5,True,'blue'))
+packer.addItem(Item('8kg/4kg/Prio2', 'test','cube',(2, 2, 4), 8,2,4,True,'gray'))
+packer.addItem(Item('3.5kg/2kg/Prio1', 'test','cube',(2, 2, 3), 3.5,1,2,True,'orange'))
+packer.addItem(Item('9kg/8kg/Prio1', 'test','cylinder',(3, 2, 4), 9,1,8,True,'lawngreen'))
+packer.addItem(Item('8kg/8kg/Prio2', 'test','cylinder',(3, 2, 4), 8,2,8,True,'purple'))
+packer.addItem(Item('9kg/8kg/Prio1', 'test','cylinder',(3, 1, 5), 9,1,8,True,'yellow'))
+packer.addItem(Item('3kg/2kg/Prio1', 'test','cylinder',(4, 4, 2), 3,1,2,True,'pink'))
+packer.addItem(Item('3kg/2.5kg/Prio1', 'test','cylinder',(4, 4, 2), 3,1,2.5,True,'brown'))
+packer.addItem(Item('11kg/10kg/Prio1', 'test','cube',(4, 4, 2), 11,1,10,True,'cyan'))
+packer.addItem(Item('1.5kg/1.5kg/Prio1', 'test','cylinder',(2, 2, 2), 1.5,1,1.5,True,'olive'))
+packer.addItem(Item('2kg/2kg/Prio1', 'test','cylinder',(2, 2, 1), 2,1,2,True,'darkgreen'))
+packer.addItem(Item('2.5kg/1kg/Prio1', 'test','cube',(5, 2, 2), 2.5,1,1,True,'orange'))
 
 # calculate packing 
 packer.pack(
