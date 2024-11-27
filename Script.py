@@ -131,10 +131,10 @@ class PalletStack:
         self.bay = bay
         self.load_capacity = self.calculate_dynamic_stackability()  # Call the method to calculate the dynamic load-bearing capacity
         self.assign_subtype_to_pallet_stack()  # Call the method to assign the pallet stack type
-        self.version_item = Item(partno=self.name, name=self.subtype, typeof=self.shape, WHD=(self.width, self.length, self.height), weight=self.weight, level=self.priority, loadbear=self.load_capacity, updown=False, color=self.color, assigned_bin=(self.assigned_truck.version_bin if self.assigned_truck is not None else None))
+        self.version_item = Item(item_id=self.name, item_name=self.subtype, typeof=self.shape, WHD=(self.width, self.length, self.height), weight=self.weight, priority_level=self.priority, loadbear=self.load_capacity, updown=False, color=self.color, assigned_bin=(self.assigned_truck.version_bin if self.assigned_truck is not None else None))
 
     def update_version_item(self):
-        self.version_item = Item(partno=self.name, name=self.subtype, typeof=self.shape, WHD=(self.width, self.length, self.height), weight=self.weight, level=self.priority, loadbear=self.load_capacity, updown=False, color=self.color, assigned_bin=(self.assigned_truck.version_bin if self.assigned_truck is not None else None))
+        self.version_item = Item(item_id=self.name, item_name=self.subtype, typeof=self.shape, WHD=(self.width, self.length, self.height), weight=self.weight, priority_level=self.priority, loadbear=self.load_capacity, updown=False, color=self.color, assigned_bin=(self.assigned_truck.version_bin if self.assigned_truck is not None else None))
 
     def calculate_dynamic_stackability(self):
         if self.stackable:
@@ -180,7 +180,7 @@ class Truck:
         self.bay = bay
         self.existing_pallets = []
         self.movable_existing_pallets = movable_existing_pallets
-        self.version_bin = Bin(partno=self.license_plate, WHD=((self.width, self.length, self.height)), max_weight=self.max_weight, corner=0, put_type=0)
+        self.version_bin = Bin(bin_id=self.license_plate, WHD=((self.width, self.length, self.height)), max_weight=self.max_weight, corner=0, put_type=0)
         self.bay.packer.addBin(self.version_bin)
 
     def consider_existing_pallets(self, initial_pallets):
@@ -286,7 +286,7 @@ class Bay:
             for pallet in self.pallets_in_bay:
                 # Attempt to load the pallet
                 if truck.check_truck_compatibility(pallet):
-                    if pallet.name not in [item.partno for item in self.packer.items]:
+                    if pallet.name not in [item.item_id for item in self.packer.items]:
                         self.packer.addItem(pallet.version_item)
                         # print(f"Pallet {pallet.name} added to the packer of bay {self.number}.")
                     # else:
@@ -296,7 +296,7 @@ class Bay:
 
         print(f"List of items in the packer of bay {self.number} before packing:")
         for item in self.packer.items:
-            print(f"Item {item.partno} added to packer of bay {self.number}")
+            print(f"Item {item.item_id} added to packer of bay {self.number}")
 
         # Execute packing only for pallets without assigned position
         self.packer.pack(
@@ -312,11 +312,11 @@ class Bay:
         # Assign pallets to trucks
         for truck in trucks_in_this_bay:
             for bin in self.packer.bins:
-                if bin.partno == truck.license_plate:
+                if bin.bin_id == truck.license_plate:
                     list_copy = (self.pallets_in_bay + truck.existing_pallets)[:]
                     for pallet in list_copy:
                         for item in bin.items:
-                            if item.partno == pallet.name:
+                            if item.item_id == pallet.name:
                                 pallet.position = item.position  # Update the position of the pallet
                                 pallet.assigned_truck = truck  # Update the assigned truck of the pallet
                                 if pallet not in truck.loaded_pallets:
@@ -430,7 +430,7 @@ for bay in bays:
     for truck in trucks_in_this_bay:
         print(f"- On truck {truck.license_plate}:")
         for truck_bin in bay.packer.bins:
-            if truck_bin.partno == truck.license_plate:
+            if truck_bin.bin_id == truck.license_plate:
                 # print(truck.loaded_pallets)
                 for pallet_stack in truck.loaded_pallets:
                     print(f"Pallet stack {pallet_stack.name} loaded on truck {truck.license_plate} at position x: {pallet_stack.position[0]}, y: {pallet_stack.position[1]}, z: {pallet_stack.position[2]}")
@@ -476,7 +476,7 @@ for bay in bays:
         # Draw results
         painter = Painter(truck_bin)
         fig = painter.plotBoxAndItems(
-            title=truck_bin.partno,
+            title=truck_bin.bin_id,
             alpha=0.6,   # Transparency
             write_name=True,
             fontsize=10,
@@ -490,14 +490,14 @@ for bay in bays:
     volume_unfitted_items = 0  # Total volume of unfitted items
     for item in bay.packer.unfit_items:
         print("***************************************************")
-        print("Pallet stack number : ", item.partno)
-        print('type : ', item.name)
+        print("Pallet stack number : ", item.item_id)
+        print('type : ', item.item_name)
         print("color : ", item.color)
         print("Width*Length*Height : ", str(item.width) + ' * ' + str(item.height) + ' * ' + str(item.depth))
         print("volume : ", int(item.width) * int(item.height) * int(item.depth))
         print("weight : ", int(item.weight))
         volume_unfitted_items += int(item.width) * int(item.height) * int(item.depth)
-        unfitted_names += '{},'.format(item.partno)
+        unfitted_names += '{},'.format(item.item_id)
         print("***************************************************")
     print("***************************************************")
     # print(f'PALLET STACKS with acceptable dimensions NOT LOADED in BAY {bay.number}: ', unfitted_names)
@@ -567,7 +567,7 @@ print("***************************************************")
 # Draw results
 painter = Painter(truck_bin)
 fig = painter.plotBoxAndItems(
-    title=truck_bin.partno,
+    title=truck_bin.bin_id,
     alpha=0.6,   # Transparency
     write_name=True,
     fontsize=10,
@@ -581,14 +581,14 @@ unfitted_names = ''
 volume_unfitted_items = 0  # Total volume of unfitted items
 for item in bay.packer.unfit_items:
     print("***************************************************")
-    print("Pallet stack number : ", item.partno)
-    print('type : ', item.name)
+    print("Pallet stack number : ", item.item_id)
+    print('type : ', item.item_name)
     print("color : ", item.color)
     print("Width*Length*Height : ", str(item.width) + ' * ' + str(item.height) + ' * ' + str(item.depth))
     print("volume : ", int(item.width) * int(item.height) * int(item.depth))
     print("weight : ", int(item.weight))
     volume_unfitted_items += int(item.width) * int(item.height) * int(item.depth)
-    unfitted_names += '{},'.format(item.partno)
+    unfitted_names += '{},'.format(item.item_id)
     print("***************************************************")
 print("***************************************************")
 print(f'VOLUME of pallet stacks with acceptable dimensions NOT LOADED in BAY {bay.number}: ', volume_unfitted_items)

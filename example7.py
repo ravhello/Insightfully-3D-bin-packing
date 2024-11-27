@@ -10,11 +10,11 @@ If you have multiple boxes, you can change distribute_items to achieve different
 '''
 
 # Initialize the packing function
-packer = Packer(name='Example Packer')
+packer = Packer(packer_id='Example Packer')
 
 # Initialize bins
-box = Bin('example7-Bin1', (5, 5, 5), 100, 0, 0)
-box2 = Bin('example7-Bin2', (3, 3, 5), 100, 0, 0)
+box = Bin((5, 5, 5), 100, bin_id='example7-Bin1', bin_name='example7-Bin1', corner=0, put_type=1)
+box2 = Bin((3, 3, 5), 100, bin_id='example7-Bin2', bin_name='example7-Bin2', corner=0, put_type=1)
 
 # Add bins to the packer
 packer.addBin(box)
@@ -42,17 +42,17 @@ items = [
     ('Box-18', (5, 4, 2), 'brown'),
 ]
 
-for partno, dimensions, color in items:
+for item_id, dimensions, color in items:
     packer.addItem(Item(
-        partno=partno,
-        name=partno,
-        typeof='cube',
         WHD=dimensions,
         weight=1,
-        level=1,
-        loadbear=100,
+        priority_level=1,
         updown=True,
-        color=color
+        color=color,
+        loadbear=100,
+        item_id=item_id,
+        item_name=item_id,
+        typeof='cube'
     ))
 
 # Calculate packing
@@ -77,13 +77,13 @@ for idx, b in enumerate(packer.bins):
     volume_t = 0
 
     if not b.items:
-        print(f"Bin {b.partno} is empty. Skipping plot.")
+        print(f"Bin {b.item_id} is empty. Skipping plot.")
         continue
 
     for item in b.items:
         item_volume = float(item.width) * float(item.height) * float(item.depth)
         volume_t += item_volume
-        print(f"partno : {item.partno}")
+        print(f"item_id : {item.item_id}")
         print(f"color : {item.color}")
         print(f"position : {item.position}")
         print(f"rotation type : {item.rotation_type}")
@@ -100,7 +100,7 @@ for idx, b in enumerate(packer.bins):
     # Generate and show plot for the current bin
     painter = Painter(b)
     fig = painter.plotBoxAndItems(
-        title=b.partno,
+        title=b.bin_id,
         alpha=0.8,
         write_name=False,
         fontsize=10

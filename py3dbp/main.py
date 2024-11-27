@@ -4,8 +4,6 @@ from decimal import Decimal, getcontext
 import numpy as np
 import copy
 import plotly.graph_objects as go
-import logging
-import sys
 
 # Set global context for decimal precision if needed
 getcontext().prec = 28  # Adjust as needed
@@ -25,46 +23,46 @@ def set_external_logger(logger):
 DEFAULT_NUMBER_OF_DECIMALS = 0
 START_POSITION = [Decimal('0'), Decimal('0'), Decimal('0')]
 
-class Item:
-    existing_names = set()
+avg_density_coefficient = 0.00026  # kg/cm³
 
-    def __init__(self, partno, name, typeof, WHD, weight, level, loadbear, updown, color, assigned_bin=None):
+class Item:
+    existing_items_ids = set()
+
+    def __init__(self, WHD, weight=None, priority_level=100, updown=False, color="red", loadbear=None, item_id=None, item_name=None, typeof='cube', assigned_bin=None):
         if typeof not in ['cube', 'cylinder']:
             raise ValueError(f"Invalid item type: {typeof}. Must be 'cube' or 'cylinder'.")
-        self.partno = partno
-        self.name = self._generate_unique_name(name)
+        self.item_id = self.generate_unique_id(item_id)
+        self.item_name = item_name if item_name else item_id
         self.typeof = typeof
         self.width = Decimal(str(WHD[0]))
         self.height = Decimal(str(WHD[1]))
         self.depth = Decimal(str(WHD[2]))
-        self.weight = Decimal(str(weight))
-        # Packing priority level
-        self.level = level
-        # Load bearing capacity (in terms of kilos): if 0 it means that the item is non-stackable
-        self.loadbear = loadbear
-        # Upside down? True or False
+        self.number_of_decimals = DEFAULT_NUMBER_OF_DECIMALS
+        self.weight = Decimal(str(weight)) if weight else self.getVolume() * Decimal(str(avg_density_coefficient))
+        self.priority_level = priority_level
+        self.loadbear = loadbear if loadbear else self.weight # Load bearing capacity (in terms of kilos): if 0 it means that the item is non-stackable
         self.updown = updown if typeof == 'cube' else False
-        # Draw item color
         self.color = color
         self.rotation_type = 0
         self.position = START_POSITION.copy()
-        self.number_of_decimals = DEFAULT_NUMBER_OF_DECIMALS
-        self.assigned_bin = assigned_bin  # New attribute
+        self.assigned_bin = assigned_bin
 
-    def _generate_unique_name(self, base_name):
-        ''' Generate a unique name if the base name already exists '''
-        if base_name not in Item.existing_names:
-            Item.existing_names.add(base_name)
-            return base_name
+    def generate_unique_id(self, base_id):
+        ''' Generate a unique ID if the base ID already exists '''
+        if base_id and base_id not in Item.existing_items_ids:
+            Item.existing_items_ids.add(base_id)
+            return base_id
 
         counter = 1
-        new_name = f"{base_name}_{counter}"
-        while new_name in Item.existing_names:
+        new_id = f"{base_id}{counter}"
+        while new_id in Item.existing_items_ids:
             counter += 1
-            new_name = f"{base_name}_{counter}"
+            new_id = f"{base_id}{counter}"
 
-        Item.existing_names.add(new_name)
-        return new_name
+        Item.existing_items_ids.add(new_id)
+        if external_logger:
+            external_logger.warning(f'ID conflict for item {base_id}. Assigned new id: {new_id}')
+        return new_id
 
     def formatNumbers(self, number_of_decimals):
         self.width = set2Decimal(self.width, number_of_decimals)
@@ -75,7 +73,7 @@ class Item:
 
     def string(self):
         return "%s(%sx%sx%s, weight: %s) pos(%s) rt(%s) vol(%s)" % (
-            self.partno, self.width, self.height, self.depth, self.weight,
+            self.item_id, self.width, self.height, self.depth, self.weight,
             self.position, self.rotation_type, self.getVolume()
         )
 
@@ -106,9 +104,10 @@ class Item:
         return dimension
 
 class Bin:
+    existing_bins_ids = set()
 
-    def __init__(self, partno, WHD, max_weight, corner=0, put_type=1):
-        self.partno = partno
+    def __init__(self, WHD, max_weight=10000000000000, bin_id=None, bin_name=None, corner=0, put_type=1):
+        self.bin_id = self.generate_unique_id(bin_id)
         self.width = Decimal(str(WHD[0]))
         self.height = Decimal(str(WHD[1]))
         self.depth = Decimal(str(WHD[2]))
@@ -124,6 +123,24 @@ class Bin:
         self.put_type = put_type
         # used to put gravity distribution
         self.gravity = []
+        self.bin_name = bin_name if bin_name else bin_id
+
+    def generate_unique_id(self, base_id):
+        ''' Generate a unique id if the base id already exists '''
+        if base_id and base_id not in Bin.existing_bins_ids:
+            Bin.existing_bins_ids.add(base_id)
+            return base_id
+
+        counter = 1
+        new_id = f"{base_id}{counter}"
+        while new_id in Bin.existing_bins_ids:
+            counter += 1
+            new_id = f"{base_id}{counter}"
+
+        Bin.existing_bins_ids.add(new_id)
+        if external_logger:
+            external_logger.warning(f'ID conflict for bin {base_id}. Assigned new id: {new_id}')
+        return new_id
 
     def formatNumbers(self, number_of_decimals):
         self.width = set2Decimal(self.width, number_of_decimals)
@@ -134,7 +151,7 @@ class Bin:
 
     def string(self):
         return "%s(%sx%sx%s, max_weight:%s) vol(%s)" % (
-            self.partno, self.width, self.height, self.depth, self.max_weight,
+            self.bin_id, self.width, self.height, self.depth, self.max_weight,
             self.getVolume()
         )
 
@@ -265,7 +282,7 @@ class Bin:
                         fit = False
                         item.position = valid_item_position
                         if external_logger:
-                            external_logger.info(f"Item {item.partno} cannot be placed on top of items that cannot bear its cumulative load")
+                            external_logger.info(f"Item {item.item_id} cannot be placed on top of items that cannot bear its cumulative load")
                         continue  # Try next rotation or pivot
 
                     # Record the item's position in the bin
@@ -392,12 +409,12 @@ class Bin:
             corner_list = []
             for i in range(8):
                 a = Item(
-                    partno='corner{}'.format(i),
-                    name='corner',
+                    item_id='corner{}'.format(i),
+                    item_name='corner',
                     typeof='cube',
                     WHD=(self.corner, self.corner, self.corner),
                     weight=0,
-                    level=0,
+                    priority_level=0,
                     loadbear=0,
                     updown=True,
                     color='#000000')
@@ -437,42 +454,46 @@ class Bin:
 
 class Packer:
 
-    def __init__(self, name=None):
+    existing_packers_ids = set()
+
+    def __init__(self, packer_id=None, packer_name=None):
         self.bins = []
         self.items = []
         self.unfit_items = []
         self.total_items = 0
         self.binding = []
-        self.name = self._generate_unique_name(name if name else "DefaultPacker")
+        self.packer_id = self._generate_unique_id(packer_id)
+        self.packer_name = packer_name if packer_name else packer_id
         if external_logger:
-            external_logger.info(f'Added packer: {self.name}')
+            external_logger.info(f'Added packer: {self.packer_id}')
 
-    def _generate_unique_name(self, base_name):
-        ''' Generate a unique name if the base name already exists '''
-        existing_names = {bin.partno for bin in self.bins}
-        if base_name not in existing_names:
-            return base_name
+    def _generate_unique_id(self, base_id):
+        ''' Generate a unique id if the base id already exists '''
+        if base_id and base_id not in Packer.existing_packers_ids:
+            Packer.existing_packers_ids.add(base_id)
+            return base_id
 
         counter = 1
-        new_name = f"{base_name}_{counter}"
-        while new_name in existing_names:
+        new_id = f"{base_id}{counter}"
+        while new_id in Packer.existing_packers_ids:
             counter += 1
-            new_name = f"{base_name}_{counter}"
+            new_id = f"{base_id}{counter}"
 
+        Packer.existing_packers_ids.add(new_id)
         if external_logger:
-            external_logger.warning(f'Name conflict for {base_name}. Assigned new name: {new_name}')
+            external_logger.warning(f'ID conflict for packer {base_id}. Assigned new id: {new_id}')
 
-        return new_name
+        return new_id
 
     def addBin(self, bin):
         if external_logger:
-            external_logger.info(f'Bin added: {bin.partno} to packer {self.name}')
+            external_logger.info(f'Bin added: {bin.bin_id} to packer {self.packer_id}')
         self.bins.append(bin)
 
     def addItem(self, item):
         self.total_items = len(self.items) + 1
         if external_logger:
-            external_logger.info(f'Item added: {item.partno} to packer: {self.name}')
+            external_logger.info(f'Item added: {item.item_id} to packer: {self.packer_id}')
         self.items.append(item)
 
     def pack2Bin(self, bin, item, fix_point, check_stable, support_surface_ratio):
@@ -482,9 +503,9 @@ class Packer:
         bin.check_stable = check_stable
         bin.support_surface_ratio = Decimal(str(support_surface_ratio))
         if external_logger:
-            external_logger.info(f"Attempting to pack item {item.partno} into bin {bin.partno}")
+            external_logger.info(f"Attempting to pack item {item.item_id} into bin {bin.bin_id}")
 
-        if item.assigned_bin and item.assigned_bin.partno != bin.partno:
+        if item.assigned_bin and item.assigned_bin.bin_id != bin.bin_id:
             return  # Skip packing if item is assigned to a different bin
 
         # First put item at (0, 0, 0), if corner exists, first add corner in box
@@ -499,7 +520,7 @@ class Packer:
             if not response:
                 bin.unfitted_items.append(item)
                 if external_logger:
-                    external_logger.info(f'Item: {item.partno} does not fit in bin: {bin.partno}')
+                    external_logger.info(f'Item: {item.item_id} does not fit in bin: {bin.bin_id}')
             return
 
         for axis in range(0, 3):
@@ -522,17 +543,17 @@ class Packer:
         if not fitted:
             bin.unfitted_items.append(item)
             if external_logger:
-                external_logger.info(f"Item {item.partno} does not fit in bin {bin.partno}")
+                external_logger.info(f"Item {item.item_id} does not fit in bin {bin.bin_id}")
 
-    def sortBinding(self, bin):
+    def sortBinding(self): # Sorting everything in this packer
         ''' sorted by binding '''
         b, front, back = [], [], []
         for i in range(len(self.binding)):
             b.append([])
             for item in self.items:
-                if item.name in self.binding[i]:
+                if item.item_id in self.binding[i]:
                     b[i].append(item)
-                elif item.name not in self.binding:
+                elif item.item_id not in self.binding:
                     if len(b[0]) == 0 and item not in front:
                         front.append(item)
                     elif item not in back and item not in front:
@@ -550,7 +571,7 @@ class Packer:
                 if j not in sort_bind:
                     self.unfit_items.append(j)
                     if external_logger:
-                        external_logger.info(f"Item {j.name} does not fit in sorting binding")
+                        external_logger.info(f"Item {j.item_id} does not fit in sorting binding")
 
         self.items = front + sort_bind + back
         return
@@ -626,9 +647,9 @@ class Packer:
         self.binding = binding
         # Bin: sorted by volume
         self.bins.sort(key=lambda bin: bin.getVolume(), reverse=bigger_first)
-        # Item: sorted by volume -> load bearing -> level -> binding
+        # Item: sorted by volume -> load bearing -> priority_level -> binding
         self.items.sort(key=lambda item: (
-            item.level,                                             # Level ascending
+            item.priority_level,                                             # priority_level ascending
             -item.loadbear,                                         # Loadbear descending
             -item.getVolume() if bigger_first else item.getVolume() # Volume (reversed if bigger_first=True)
         ))
@@ -640,9 +661,9 @@ class Packer:
         for idx, bin in enumerate(self.bins):
             # Pack item to bin
             for item in self.items:
-                if item.assigned_bin and item.assigned_bin.partno != bin.partno:
+                if item.assigned_bin and item.assigned_bin.bin_id != bin.bin_id:
                     if external_logger:
-                        external_logger.info(f'Item {item.partno} (assigned to bin {item.assigned_bin.partno}) does not match bin {bin.partno}')
+                        external_logger.info(f'Item {item.item_id} (assigned to bin {item.assigned_bin.bin_id}) does not match bin {bin.bin_id}')
                     continue  # Skip items that are assigned to a different bin
                 self.pack2Bin(bin, item, fix_point, check_stable, support_surface_ratio)
 
@@ -650,7 +671,7 @@ class Packer:
                 # resorted
                 self.items.sort(key=lambda item: item.getVolume(), reverse=bigger_first)
                 self.items.sort(key=lambda item: item.loadbear, reverse=True)
-                self.items.sort(key=lambda item: item.level, reverse=False)
+                self.items.sort(key=lambda item: item.priority_level, reverse=False)
                 # clear bin
                 bin.items = []
                 bin.unfitted_items = self.unfit_items
@@ -664,9 +685,9 @@ class Packer:
 
             if distribute_items:
                 for bitem in bin.items:
-                    no = bitem.partno
+                    no = bitem.item_id
                     for item in self.items:
-                        if item.partno == no:
+                        if item.item_id == no:
                             self.items.remove(item)
                             break
 
@@ -699,7 +720,7 @@ class Painter:
             x, y, z = item.position
             w, h, d = item.getDimension()
             color = item.color
-            text = item.partno if write_name and 'corner' not in item.name else ""
+            text = item.item_id if write_name and 'corner' not in item.item_name else ""
             # Calculate alpha and top_alpha
             if alpha_proportional:
                 alpha = float(item.weight / max_weight) if item.weight is not None else alpha
@@ -713,16 +734,16 @@ class Painter:
                 # Plot the cube with optional top face adjustment
                 self._plotCube(fig, float(x), float(y), float(z), float(w), float(h), float(d),
                             color=color, opacity=alpha, text=text, fontsize=fontsize,
-                            show_edges=show_edges, item_name=item.partno, top_alpha=top_alpha, top_face_proportional=top_face_proportional)
+                            show_edges=show_edges, item_name=item.item_name, top_alpha=top_alpha, top_face_proportional=top_face_proportional)
             elif item.typeof == 'cylinder':
                 # Plot cylinder if applicable
                 self._plotCylinder(fig, float(x), float(y), float(z), float(w), float(h), float(d),
                             color=color, opacity=alpha, text=text, fontsize=fontsize,
-                            show_edges=show_edges, item_name=item.partno, top_alpha=top_alpha, top_face_proportional=top_face_proportional)
+                            show_edges=show_edges, item_name=item.item_name, top_alpha=top_alpha, top_face_proportional=top_face_proportional)
             else:
                 if external_logger:
-                    external_logger.warning(f'Item {item.partno} has an invalid type: {item.typeof}')
-                    external_logger.warning(f'Item {item.partno} will not be plotted')
+                    external_logger.warning(f'Item {item.item_id} has an invalid type: {item.typeof}')
+                    external_logger.warning(f'Item {item.item_id} will not be plotted')
 
         # Configure plot layout
         fig.update_layout(
