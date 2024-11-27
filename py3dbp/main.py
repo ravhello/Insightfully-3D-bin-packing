@@ -24,11 +24,9 @@ DEFAULT_NUMBER_OF_DECIMALS = 0
 START_POSITION = [Decimal('0'), Decimal('0'), Decimal('0')]
 
 avg_density_coefficient = 0.00026  # kg/cm³
-
 class Item:
-    existing_items_ids = set()
-
-    def __init__(self, WHD, weight=None, priority_level=100, updown=False, color="red", loadbear=None, item_id=None, item_name=None, typeof='cube', assigned_bin=None):
+    def __init__(self, WHD, weight=None, priority_level=100, updown=False, color="red", loadbear=None, item_id=None, item_name=None, typeof='cube', assigned_bin=None, packer=None):
+        self.packer = packer if packer is not None else Packer.get_default_packer()
         if typeof not in ['cube', 'cylinder']:
             raise ValueError(f"Invalid item type: {typeof}. Must be 'cube' or 'cylinder'.")
         self.item_id = self.generate_unique_id(item_id)
@@ -49,17 +47,18 @@ class Item:
 
     def generate_unique_id(self, base_id):
         ''' Generate a unique ID if the base ID already exists '''
-        if base_id and base_id not in Item.existing_items_ids:
-            Item.existing_items_ids.add(base_id)
+        existing_items_ids = self.packer.existing_items_ids
+        if base_id and base_id not in existing_items_ids:
+            existing_items_ids.add(base_id)
             return base_id
 
         counter = 1
         new_id = f"{base_id}{counter}"
-        while new_id in Item.existing_items_ids:
+        while new_id in existing_items_ids:
             counter += 1
             new_id = f"{base_id}{counter}"
 
-        Item.existing_items_ids.add(new_id)
+        existing_items_ids.add(new_id)
         if external_logger:
             external_logger.warning(f'ID conflict for item {base_id}. Assigned new id: {new_id}')
         return new_id
@@ -104,9 +103,8 @@ class Item:
         return dimension
 
 class Bin:
-    existing_bins_ids = set()
-
-    def __init__(self, WHD, max_weight=10000000000000, bin_id=None, bin_name=None, corner=0, put_type=1):
+    def __init__(self, WHD, max_weight=10000000000000, bin_id=None, bin_name=None, corner=0, put_type=1, packer=None):
+        self.packer = packer if packer is not None else Packer.get_default_packer()
         self.bin_id = self.generate_unique_id(bin_id)
         self.width = Decimal(str(WHD[0]))
         self.height = Decimal(str(WHD[1]))
@@ -127,17 +125,18 @@ class Bin:
 
     def generate_unique_id(self, base_id):
         ''' Generate a unique id if the base id already exists '''
-        if base_id and base_id not in Bin.existing_bins_ids:
-            Bin.existing_bins_ids.add(base_id)
+        existing_bins_ids = self.packer.existing_bins_ids
+        if base_id and base_id not in existing_bins_ids:
+            existing_bins_ids.add(base_id)
             return base_id
 
         counter = 1
         new_id = f"{base_id}{counter}"
-        while new_id in Bin.existing_bins_ids:
+        while new_id in existing_bins_ids:
             counter += 1
             new_id = f"{base_id}{counter}"
 
-        Bin.existing_bins_ids.add(new_id)
+        existing_bins_ids.add(new_id)
         if external_logger:
             external_logger.warning(f'ID conflict for bin {base_id}. Assigned new id: {new_id}')
         return new_id
@@ -453,10 +452,12 @@ class Bin:
         self.fit_items = np.array([[Decimal('0'), self.width, Decimal('0'), self.height, Decimal('0'), Decimal('0')]], dtype=object)
 
 class Packer:
-
-    existing_packers_ids = set()
+    _default_packer = None
 
     def __init__(self, packer_id=None, packer_name=None):
+        self.existing_items_ids = set()
+        self.existing_bins_ids = set()
+        self.existing_packers_ids = set()
         self.bins = []
         self.items = []
         self.unfit_items = []
@@ -464,22 +465,31 @@ class Packer:
         self.binding = []
         self.packer_id = self._generate_unique_id(packer_id)
         self.packer_name = packer_name if packer_name else packer_id
+        if Packer._default_packer is None:
+            Packer._default_packer = self
         if external_logger:
             external_logger.info(f'Added packer: {self.packer_id}')
+    
+    @staticmethod
+    def get_default_packer():
+        if Packer._default_packer is not None:
+            return Packer._default_packer
+        else:
+            raise ValueError("No default packer available. Create an instance of Packer before creating Item or Bin.")
 
     def _generate_unique_id(self, base_id):
         ''' Generate a unique id if the base id already exists '''
-        if base_id and base_id not in Packer.existing_packers_ids:
-            Packer.existing_packers_ids.add(base_id)
+        if base_id and base_id not in self.existing_packers_ids:
+            self.existing_packers_ids.add(base_id)
             return base_id
 
         counter = 1
         new_id = f"{base_id}{counter}"
-        while new_id in Packer.existing_packers_ids:
+        while new_id in self.existing_packers_ids:
             counter += 1
             new_id = f"{base_id}{counter}"
 
-        Packer.existing_packers_ids.add(new_id)
+        self.existing_packers_ids.add(new_id)
         if external_logger:
             external_logger.warning(f'ID conflict for packer {base_id}. Assigned new id: {new_id}')
 
