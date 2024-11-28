@@ -5,7 +5,7 @@ import numpy as np
 import copy
 import plotly.graph_objects as go
 
-# Set global context for decimal precision if needed
+# Set global context for decimal precision
 getcontext().prec = 28  # Adjust as needed
 
 # Global variable for the external logger
@@ -17,13 +17,11 @@ def set_external_logger(logger):
     if external_logger:
         external_logger.info('Logger correctly configured in the external module.')
 
-# Example of using the logger in the external module
-# external_logger.info('Logger correctly configured in the external module.')
-
 DEFAULT_NUMBER_OF_DECIMALS = 0
 START_POSITION = [Decimal('0'), Decimal('0'), Decimal('0')]
 
-avg_density_coefficient = 0.00026  # kg/cm³
+avg_density_coefficient = Decimal('0.00026')  # kg/cm³
+
 class Item:
     def __init__(self, WHD, weight=None, priority_level=100, updown=False, color="red", loadbear=None, item_id=None, item_name=None, typeof='cube', assigned_bin=None, packer=None):
         self.packer = packer if packer is not None else Packer.get_default_packer()
@@ -36,9 +34,9 @@ class Item:
         self.height = Decimal(str(WHD[1]))
         self.depth = Decimal(str(WHD[2]))
         self.number_of_decimals = DEFAULT_NUMBER_OF_DECIMALS
-        self.weight = Decimal(str(weight)) if weight else self.getVolume() * Decimal(str(avg_density_coefficient))
+        self.weight = Decimal(str(weight)) if weight else self.getVolume() * avg_density_coefficient
         self.priority_level = priority_level
-        self.loadbear = loadbear if loadbear else self.weight # Load bearing capacity (in terms of kilos): if 0 it means that the item is non-stackable
+        self.loadbear = Decimal(str(loadbear)) if loadbear else self.weight  # Load bearing capacity
         self.updown = updown if typeof == 'cube' else False
         self.color = color
         self.rotation_type = 0
@@ -68,6 +66,7 @@ class Item:
         self.height = set2Decimal(self.height, number_of_decimals)
         self.depth = set2Decimal(self.depth, number_of_decimals)
         self.weight = set2Decimal(self.weight, number_of_decimals)
+        self.loadbear = set2Decimal(self.loadbear, number_of_decimals)
         self.number_of_decimals = number_of_decimals
 
     def string(self):
@@ -77,30 +76,27 @@ class Item:
         )
 
     def getVolume(self):
-        return set2Decimal(self.width * self.height * self.depth, self.number_of_decimals)
+        volume = self.width * self.height * self.depth
+        return set2Decimal(volume, self.number_of_decimals)
 
     def getMaxArea(self):
-        a = sorted([self.width, self.height, self.depth], reverse=True) if self.updown else [self.width, self.height, self.depth]
-        return set2Decimal(a[0] * a[1], self.number_of_decimals)
+        dimensions = [self.width, self.height, self.depth]
+        if self.updown:
+            dimensions.sort(reverse=True)
+        area = dimensions[0] * dimensions[1]
+        return set2Decimal(area, self.number_of_decimals)
 
     def getDimension(self):
         ''' Rotation type '''
-        if self.rotation_type == RotationType.RT_WHD:
-            dimension = [self.width, self.height, self.depth]
-        elif self.rotation_type == RotationType.RT_HWD:
-            dimension = [self.height, self.width, self.depth]
-        elif self.rotation_type == RotationType.RT_HDW:
-            dimension = [self.height, self.depth, self.width]
-        elif self.rotation_type == RotationType.RT_DHW:
-            dimension = [self.depth, self.height, self.width]
-        elif self.rotation_type == RotationType.RT_DWH:
-            dimension = [self.depth, self.width, self.height]
-        elif self.rotation_type == RotationType.RT_WDH:
-            dimension = [self.width, self.depth, self.height]
-        else:
-            dimension = []
-
-        return dimension
+        rotation_dict = {
+            RotationType.RT_WHD: [self.width, self.height, self.depth],
+            RotationType.RT_HWD: [self.height, self.width, self.depth],
+            RotationType.RT_HDW: [self.height, self.depth, self.width],
+            RotationType.RT_DHW: [self.depth, self.height, self.width],
+            RotationType.RT_DWH: [self.depth, self.width, self.height],
+            RotationType.RT_WDH: [self.width, self.depth, self.height],
+        }
+        return rotation_dict.get(self.rotation_type, [])
 
 class Bin:
     def __init__(self, WHD, max_weight=10000000000000, bin_id=None, bin_name=None, corner=0, put_type=1, packer=None):
@@ -146,6 +142,7 @@ class Bin:
         self.height = set2Decimal(self.height, number_of_decimals)
         self.depth = set2Decimal(self.depth, number_of_decimals)
         self.max_weight = set2Decimal(self.max_weight, number_of_decimals)
+        self.corner = set2Decimal(self.corner, number_of_decimals)
         self.number_of_decimals = number_of_decimals
 
     def string(self):
@@ -155,9 +152,8 @@ class Bin:
         )
 
     def getVolume(self):
-        return set2Decimal(
-            self.width * self.height * self.depth, self.number_of_decimals
-        )
+        volume = self.width * self.height * self.depth
+        return set2Decimal(volume, self.number_of_decimals)
 
     def getTotalWeight(self):
         total_weight = Decimal('0')
@@ -423,9 +419,9 @@ class Bin:
 
     def putCorner(self, info, item):
         ''' Put corner in bin '''
-        x = set2Decimal(self.width - self.corner)
-        y = set2Decimal(self.height - self.corner)
-        z = set2Decimal(self.depth - self.corner)
+        x = set2Decimal(self.width - self.corner, self.number_of_decimals)
+        y = set2Decimal(self.height - self.corner, self.number_of_decimals)
+        z = set2Decimal(self.depth - self.corner, self.number_of_decimals)
         pos = [
             [Decimal('0'), Decimal('0'), Decimal('0')],
             [Decimal('0'), Decimal('0'), z],
@@ -469,7 +465,7 @@ class Packer:
             Packer._default_packer = self
         if external_logger:
             external_logger.info(f'Added packer: {self.packer_id}')
-    
+
     @staticmethod
     def get_default_packer():
         if Packer._default_packer is not None:
@@ -853,7 +849,6 @@ class Packer:
         if external_logger:
             external_logger.info(f"All packers have been packed.")
 
-
 class Painter:
 
     def __init__(self, bin):
@@ -863,23 +858,26 @@ class Painter:
         self.depth = float(bin.depth)
 
     def plotBoxAndItems(self, title="", alpha=0.2, write_name=True, fontsize=10, alpha_proportional=False, top_face_proportional=False, show_edges=True):
-        """ Side effect: Plot the Bin and the items it contains. """
+        """Plot the Bin and the items it contains."""
         fig = go.Figure()
 
         # Plot bin as wireframe
-        self._plotBinWireframe(fig, 0, 0, 0, self.width, self.height, self.depth, color='black')
+        self._plotBinWireframe(fig, 0.0, 0.0, 0.0, self.width, self.height, self.depth, color='black')
 
         # Find max weight for proportional alpha
         max_weight = max([item.weight for item in self.items]) if len(self.items) > 0 else Decimal('1')
 
         for item in self.items:
-            x, y, z = item.position
-            w, h, d = item.getDimension()
+            x, y, z = [float(coord) for coord in item.position]
+            w, h, d = [float(dim) for dim in item.getDimension()]
             color = item.color
             text = item.item_id if write_name and 'corner' not in item.item_name else ""
+
             # Calculate alpha and top_alpha
             if alpha_proportional:
                 alpha = float(item.weight / max_weight) if item.weight is not None else alpha
+            else:
+                alpha = alpha
             if top_face_proportional:
                 top_alpha = 1 - float(item.loadbear / max_weight)
                 top_alpha = max(0, min(top_alpha, 1))  # Ensure alpha is between 0 and 1
@@ -888,14 +886,14 @@ class Painter:
 
             if item.typeof == 'cube':
                 # Plot the cube with optional top face adjustment
-                self._plotCube(fig, float(x), float(y), float(z), float(w), float(h), float(d),
-                            color=color, opacity=alpha, text=text, fontsize=fontsize,
-                            show_edges=show_edges, item_name=item.item_name, top_alpha=top_alpha, top_face_proportional=top_face_proportional)
+                self._plotCube(fig, x, y, z, w, h, d,
+                               color=color, opacity=alpha, text=text, fontsize=fontsize,
+                               show_edges=show_edges, item_name=item.item_name, top_alpha=top_alpha, top_face_proportional=top_face_proportional)
             elif item.typeof == 'cylinder':
                 # Plot cylinder if applicable
-                self._plotCylinder(fig, float(x), float(y), float(z), float(w), float(h), float(d),
-                            color=color, opacity=alpha, text=text, fontsize=fontsize,
-                            show_edges=show_edges, item_name=item.item_name, top_alpha=top_alpha, top_face_proportional=top_face_proportional)
+                self._plotCylinder(fig, x, y, z, w, h, d,
+                                   color=color, opacity=alpha, text=text, fontsize=fontsize,
+                                   show_edges=show_edges, item_name=item.item_name, top_alpha=top_alpha, top_face_proportional=top_face_proportional)
             else:
                 if external_logger:
                     external_logger.warning(f'Item {item.item_id} has an invalid type: {item.typeof}')
